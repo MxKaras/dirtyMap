@@ -31,10 +31,10 @@ namespace drtx {
     struct _bucketBase {
 
         using value_type  =  typename Hashmap<Key, Val, Hash>::value_type;
-        using bNode         =  _bNode<value_type>;
-        using iterator      =  BucketIterator<Key, Val, Hash>;
+        using bNode       =  _bNode<value_type>;
+        using iterator    =  BucketIterator<Key, Val, Hash>;
         // misc return type alias for brevity
-        using bool_ptr      =  std::pair<bool, bNode*>;
+        using bool_ptr    =  std::pair<bool, bNode*>;
 
         void *head = nullptr;
 
@@ -51,8 +51,10 @@ namespace drtx {
             iterator it = begin();
 
             while (it.current) {
-                if (it->first == k) {
-                    return it.current_element();
+                value_type *element = it.current_element();
+
+                if (element->first == k) {
+                    return element;
                 }
                 ++it;
             }
@@ -67,9 +69,7 @@ namespace drtx {
          * @param element Pointer to an element.
          */
         void insert_node(value_type *element) {
-            // Assign head and LSB to signify single element
-            uintptr_t p = reinterpret_cast<uintptr_t>(element);
-            head = reinterpret_cast<void*>(p ^ 1);
+            head = flag(element, 1);
         }
 
         /**
@@ -79,13 +79,8 @@ namespace drtx {
          * @param node Pointer to a node.
          */
         void insert_node(bNode *node) {
-            uintptr_t p = reinterpret_cast<uintptr_t>(head);
-            if (isChained()) p = p & ~3;
-
-            node->next = reinterpret_cast<void*>(p);
-            head = node;
-            p = reinterpret_cast<uintptr_t>(head);
-            head = reinterpret_cast<void*>(p ^ 3);
+            node->next = head;
+            head = flag(node, 3);
         }
 
         /**
@@ -185,12 +180,22 @@ namespace drtx {
         }
 
     private:
+        /// Strips dirty bits from address
+        uintptr_t clean(void *ptr) const {
+            return reinterpret_cast<uintptr_t>(ptr) & ~3;
+        }
+
+        void* flag(void *ptr, unsigned int i) const {
+            return reinterpret_cast<void*>(
+                    reinterpret_cast<uintptr_t>(ptr) ^ i);
+        }
+
         /// Finds the bNode whose (cleaned) `next` is `ptr`.
         bNode* node_before(void *ptr) const {
-            bNode *b = reinterpret_cast<bNode*>(reinterpret_cast<uintptr_t>(head) & ~3);
+            bNode *b = reinterpret_cast<bNode*>(clean(head));
 
-            while ((reinterpret_cast<uintptr_t>(b->next) & ~3) != reinterpret_cast<uintptr_t>(ptr)) {
-                b = reinterpret_cast<bNode*>(reinterpret_cast<uintptr_t>(b->next) & ~3);
+            while (clean(b->next) != reinterpret_cast<uintptr_t>(ptr)) {
+                b = reinterpret_cast<bNode*>(clean(b->next));
             }
             return b;
         }
