@@ -8,9 +8,9 @@
 #include <vector>
 #include <new>        // placement new
 
-#include "FYPMaps/Allocator.hpp"
+#include "dirtyMap/Allocator.hpp"
 
-namespace fyp {
+namespace drt {
 
 
     /**
@@ -30,14 +30,14 @@ namespace fyp {
         using key_type     =  Key;
         using mapped_type  =  Val;
         using value_type   =  std::pair<const Key, Val>;
-        using iterator     =  fypx::HashMapIterator<Key, Val, Hash, Alloc>;
+        using iterator     =  drtx::HashMapIterator<Key, Val, Hash, Alloc>;
 
     private:
-        using bucket_type   =  fypx::Bucket<Key, Val, Hash, Alloc, false>;
+        using bucket_type   =  drtx::Bucket<Key, Val, Hash, Alloc, false>;
         using bucket_node   =  typename bucket_type::BNode;
         using vector_type   =  std::vector<bucket_type>;
         using v_iterator    =  typename vector_type::iterator;
-        using d_iterator    =  fypx::DestructiveIterator<Key, Val, Hash, Alloc>;
+        using d_iterator    =  drtx::DestructiveIterator<Key, Val, Hash, Alloc>;
 
         vector_type buckets;
         Hash hasher;
@@ -45,8 +45,8 @@ namespace fyp {
         size_t _element_count = 0;
         float _max_load_factor = 1.0;
 
-        friend class fypx::HashMapIterator<Key, Val, Hash, Alloc>;
-        friend class fypx::DestructiveIterator<Key, Val, Hash, Alloc>;
+        friend class drtx::HashMapIterator<Key, Val, Hash, Alloc>;
+        friend class drtx::DestructiveIterator<Key, Val, Hash, Alloc>;
 
     public:
         // constructors & destructor
@@ -352,10 +352,10 @@ namespace fyp {
     public:
         using allocator_type  =  MyPoolAllocator<Key, Val, S>;
         using value_type    =  std::pair<const Key, Val>;
-        using iterator        =  fypx::HashMapIterator<Key, Val, Hash, allocator_type>;
+        using iterator        =  drtx::HashMapIterator<Key, Val, Hash, allocator_type>;
 
     private:
-        using bucket_type     =  fypx::Bucket<Key, Val, Hash, allocator_type, true>;
+        using bucket_type     =  drtx::Bucket<Key, Val, Hash, allocator_type, true>;
         using bucket_node     =  typename bucket_type::BNode;
         using vector_type     =  std::vector<bucket_type>;
         using v_iterator      =  typename vector_type::iterator;
@@ -368,7 +368,7 @@ namespace fyp {
         float _max_load_factor = 1.0;
 
         // needs access to buckets
-        friend class fypx::HashMapIterator<Key, Val, Hash, allocator_type>;
+        friend class drtx::HashMapIterator<Key, Val, Hash, allocator_type>;
 
     public:
         // constructors & destructor
@@ -753,6 +753,6 @@ namespace fyp {
         }
     };
 
-} // namespace fyp
+} // namespace drt
 
 #endif //FYP_MAPS_HASH_MAP_HPP

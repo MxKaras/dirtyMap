@@ -1,8 +1,8 @@
 #include "gtest/gtest.h"
 #include "hash_function.hpp"
-#include "FYPMaps/HashMap.hpp"
+#include "dirtyMap/HashMap.hpp"
 
-using namespace fyp;
+using namespace drt;
 
 /*
  * Test that basic element insertion routines work.

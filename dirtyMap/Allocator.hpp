@@ -7,7 +7,7 @@
 
 #ifdef FYP_MAPS_HASHMAP_HPP
 
-namespace fyp {
+namespace drt {
     /**
      * Memory allocator for use with Hashmap that is provided for convenience.
      * It sets up two expanding memory pools: one for elements and one for
@@ -22,7 +22,7 @@ namespace fyp {
     class MyPoolAllocator
             : public Segregator<sizeof(std::pair<K, V>),
                 CascadingAllocator<StackedPool<std::pair<const K, V>, count>>,
-                CascadingAllocator<StackedPool<fypx::_bNode<std::pair<const K, V>>, count>>> {
+                CascadingAllocator<StackedPool<drtx::_bNode<std::pair<const K, V>>, count>>> {
     public:
         MyPoolAllocator() = default;
     };

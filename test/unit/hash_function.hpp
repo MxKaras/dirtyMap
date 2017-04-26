@@ -2,7 +2,7 @@
 #ifndef FYP_MAPS_UTIL_HPP
 #define FYP_MAPS_UTIL_HPP
 
-namespace fyp {
+namespace drt {
 
     /**
      * Hash functor for tests.
@@ -16,6 +16,6 @@ namespace fyp {
         }
     };
 
-} // namespace fyp
+} // namespace drt
 
 #endif //FYP_MAPS_UTIL_HPP

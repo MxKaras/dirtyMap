@@ -2,9 +2,9 @@
 #ifndef FYP_MAPS_ALLOCATORS_HPP
 #define FYP_MAPS_ALLOCATORS_HPP
 
-namespace fyp {
+namespace drt {
 
-namespace fypx {
+namespace drtx {
     template<class Allocator>
     struct CascadeIterator;
 }
@@ -112,7 +112,7 @@ namespace fypx {
     template<typename Allocator>
     class CascadingAllocator {
 
-        friend struct fypx::CascadeIterator<Allocator>;
+        friend struct drtx::CascadeIterator<Allocator>;
 
         struct ANode {
             ANode *next = nullptr;
@@ -131,7 +131,7 @@ namespace fypx {
 
     public:
         using value_type = typename Allocator::value_type;
-        using iterator   = fypx::CascadeIterator<Allocator>;
+        using iterator   = drtx::CascadeIterator<Allocator>;
 
         CascadingAllocator() : head(), tail() { }
 
@@ -242,7 +242,7 @@ namespace fypx {
         }
     };
 
-namespace fypx {
+namespace drtx {
 
     template<class Allocator>
     struct CascadeIterator {
@@ -311,8 +311,8 @@ namespace fypx {
             return !(*this == other);
         }
     };
-} // namespace fypx
+} // namespace drtx
 
-} // namespace fyp
+} // namespace drt
 
 #endif // FYP_MAPS_ALLOCATORS_HPP

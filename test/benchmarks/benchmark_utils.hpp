@@ -10,7 +10,7 @@
 #include <sstream>
 #include <iostream>
 
-namespace fyp_testing {
+namespace drt_testing {
 
     using std::string;
 

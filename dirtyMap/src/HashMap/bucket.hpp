@@ -2,12 +2,12 @@
 #ifndef FYP_MAPS_BUCKET_HPP
 #define FYP_MAPS_BUCKET_HPP
 
-namespace fyp {
+namespace drt {
 
     template<typename Key, typename Val, class Hash, class Alloc>
     class Hashmap;
 
-namespace fypx {
+namespace drtx {
 
     template<typename Key, typename Val, class Hash, class Alloc>
     class BucketIterator;
@@ -297,7 +297,7 @@ namespace fypx {
         }
     };
 
-} // namespace fypx
-} // namespace fyp
+} // namespace drtx
+} // namespace drt
 
 #endif //FYP_MAPS_BUCKET_HPP

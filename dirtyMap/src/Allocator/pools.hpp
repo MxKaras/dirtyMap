@@ -2,9 +2,9 @@
 #ifndef FYP_MAPS_POOLS_HPP
 #define FYP_MAPS_POOLS_HPP
 
-namespace fyp {
+namespace drt {
 
-namespace fypx {
+namespace drtx {
 
     template<typename T, size_t size>
     struct PoolIterator;
@@ -130,7 +130,7 @@ namespace fypx {
         }
     };
 
-} // namespace fypx
+} // namespace drtx
 
     /**
      * Memory pool with a fixed capacity. The size parameter is the number of
@@ -150,8 +150,8 @@ namespace fypx {
 
     /// Partial speciality for storing objects that require no destruction.
     template<typename T, size_t size>
-    class StackedPool<T, size, true> : public fypx::_stackPoolBase<T, size> {
-        using base_type = fypx::_stackPoolBase<T, size>;
+    class StackedPool<T, size, true> : public drtx::_stackPoolBase<T, size> {
+        using base_type = drtx::_stackPoolBase<T, size>;
 
     public:
         using iterator   = typename base_type::iterator;
@@ -162,8 +162,8 @@ namespace fypx {
 
     /// Partial speciality for storing objects that require destruction.
     template<typename T, size_t size>
-    class StackedPool<T, size, false> : public fypx::_stackPoolBase<T, size> {
-        using base_type = fypx::_stackPoolBase<T, size>;
+    class StackedPool<T, size, false> : public drtx::_stackPoolBase<T, size> {
+        using base_type = drtx::_stackPoolBase<T, size>;
 
     public:
         using iterator   = typename base_type::iterator;
@@ -187,7 +187,7 @@ namespace fypx {
         return !(lhs == rhs);
     }
 
-namespace fypx {
+namespace drtx {
 
     /**
      * Iterator class for FixedPool. Simply iterates through the pool's array,
@@ -244,7 +244,7 @@ namespace fypx {
         }
     };
 
-} // namespace fypx
-} // namespace fyp
+} // namespace drtx
+} // namespace drt
 
 #endif //FYP_MAPS_POOLS_HPP

@@ -4,8 +4,8 @@
 
 #include <utility>
 
-namespace fyp {
-namespace fypx {
+namespace drt {
+namespace drtx {
 
     /**
      * Iterator class that traverses up the list of elements stored in a bucket.
@@ -75,7 +75,7 @@ namespace fypx {
     template<typename Key, typename Val, class Hash, class Alloc>
     class HashMapIterator {
     private:
-        using map_type     = fyp::Hashmap<Key, Val, Hash, Alloc>;
+        using map_type     = drt::Hashmap<Key, Val, Hash, Alloc>;
         using bucket       = typename map_type::bucket_type;
         using value_type = typename map_type::value_type;
         using v_iterator   = typename map_type::v_iterator;
@@ -164,7 +164,7 @@ namespace fypx {
     template<typename Key, typename Val, class Hash, class Alloc>
     class DestructiveIterator {
     private:
-        using map_type     = fyp::Hashmap<Key, Val, Hash, Alloc>;
+        using map_type     = drt::Hashmap<Key, Val, Hash, Alloc>;
         using bucket       = typename map_type::bucket_type;
         using value_type = typename map_type::value_type;
         using v_iterator   = typename map_type::v_iterator;
@@ -230,6 +230,6 @@ namespace fypx {
         }
     };
 
-} // namespace fypx
-} // namespace fyp
+} // namespace drtx
+} // namespace drt
 #endif //FYP_MAPS_ITERATORS_HPP
