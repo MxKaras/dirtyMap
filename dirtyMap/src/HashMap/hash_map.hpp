@@ -3,7 +3,6 @@
 #define FYP_MAPS_HASH_MAP_HPP
 
 #include <tuple>      // tuple, forward_as_tuple
-#include <functional> // hash
 #include <cmath>      // ceil
 #include <vector>
 #include <new>        // placement new
@@ -11,330 +10,6 @@
 #include "dirtyMap/Allocator.hpp"
 
 namespace drt {
-
-
-    /**
-     * Hash map implementation that conserves memory.
-     *
-     * @tparam Key   Type of key objects.
-     * @tparam Val   Type of mapped objects.
-     * @tparam Hash  Type of hash function used for value lookups.
-     * @tparam Alloc Unused parameter that is provided to allow pool
-     *               specialization and let us reuse components.
-     */
-    template<class Key, class Val,
-            class Hash = std::hash<Key>, class Alloc = bool>
-    class Hashmap {
-
-    public:
-        using key_type     =  Key;
-        using mapped_type  =  Val;
-        using value_type   =  std::pair<const Key, Val>;
-        using iterator     =  drtx::HashMapIterator<Key, Val, Hash, Alloc>;
-
-    private:
-        using bucket_type   =  drtx::Bucket<Key, Val, Hash, Alloc, false>;
-        using bucket_node   =  typename bucket_type::BNode;
-        using vector_type   =  std::vector<bucket_type>;
-        using v_iterator    =  typename vector_type::iterator;
-        using d_iterator    =  drtx::DestructiveIterator<Key, Val, Hash, Alloc>;
-
-        vector_type buckets;
-        Hash hasher;
-
-        size_t _element_count = 0;
-        float _max_load_factor = 1.0;
-
-        friend class drtx::HashMapIterator<Key, Val, Hash, Alloc>;
-        friend class drtx::DestructiveIterator<Key, Val, Hash, Alloc>;
-
-    public:
-        // constructors & destructor
-
-        Hashmap() : buckets(1), hasher() { }
-
-        Hashmap(size_t n, const Hash &hf = Hash()) : buckets(n), hasher(hf) { }
-
-        ~Hashmap() = default;
-        Hashmap(const Hashmap&) = default;
-        Hashmap& operator=(const Hashmap&) = default;
-        Hashmap(Hashmap&&) = default;
-        Hashmap& operator=(Hashmap&&) = default;
-
-        // size & capacity
-
-        /// Returns the number of elements in the map.
-        size_t size() const {
-            return _element_count;
-        }
-
-        /// Returns maximum number of elements that can be stored.
-        size_t max_size() const {
-            return buckets.max_size();
-        }
-
-        /// Returns the number of buckets in the map.
-        size_t bucket_count() const {
-            return buckets.capacity();
-        }
-
-        /// Returns true if there are no elements in the map.
-        bool empty() const {
-            return _element_count == 0;
-        }
-
-        // modifiers
-
-        /// Removes all elements from the map. Buckets are preserved.
-        void clear() {
-            v_iterator it = buckets.begin();
-
-            for (; it != buckets.end(); ++it) {
-                it->~Bucket();
-            }
-
-            _element_count = 0;
-        }
-
-        /**
-         * Removes and destroys the element corresponding to key k.
-         *
-         * @param k Key of the element to be removed.
-         * @return  The number of elements that were removed (0 or 1).
-         */
-        size_t erase(const Key &k) {
-            size_t index = hasher(k) % bucket_count();
-            value_type *element = buckets[index].search(k);
-
-            if (!element) return 0;
-            // pair<bool, bucket_node*>
-            auto removed = buckets[index].remove_node(element);
-
-            if (removed.first) {
-                delete element;
-
-                if (removed.second) {
-                    /* We removed an element, meaning that a node is at the tail
-                    of a bucket. This node needs to be converted to an element */
-                    value_type *replacement = new value_type(std::move(removed.second->element));
-                    buckets[index].update_element(removed.second, replacement);
-                    delete removed.second;
-                }
-            } else {
-                bucket_node *node = reinterpret_cast<bucket_node*>(element);
-                delete node;
-            }
-
-            _element_count -= 1;
-            return 1;
-        }
-
-        // insert/emplace methods?
-
-        // lookup
-
-        /**
-         * @brief @c [] access to map elements.
-         * @param k The key for which a mapped value should be returned.
-         * @return A reference to the value associated with k.
-         */
-        Val& operator[](const Key &k) {
-            size_t index = hasher(k) % bucket_count();
-            value_type *element = buckets[index].search(k);
-
-            if (!element) {
-                // perform rehash first, if needed.
-                bool r = maybe_rehash();
-                if (r) index = hasher(k) % bucket_count();
-                bucket_type &b = buckets[index];
-
-                if (b.isEmpty()) {
-                    // piecewise construct instantiation inspired by GNU source
-                    element = new value_type(
-                            std::piecewise_construct,
-                            std::tuple<const Key&>(k),
-                            std::tuple<>());
-                    b.insert_node(element);
-                } else {
-                    bucket_node *ptr = new bucket_node(value_type(
-                            std::piecewise_construct,
-                            std::tuple<const Key&>(k),
-                            std::tuple<>()));
-                    b.insert_node(ptr);
-                    element = &ptr->element;
-                }
-
-                ++_element_count;
-            }
-
-            return element->second;
-        }
-
-        /**
-         * @brief @c [] access to map elements.
-         * @param k The key for which a mapped value should be returned.
-         * @return A reference to the value associated with k.
-         */
-        Val& operator[](Key &&k) {
-            size_t index = hasher(k) % bucket_count();
-            value_type *element = buckets[index].search(k);
-
-            if (!element) {
-                // perform rehash first, if needed.
-                bool r = maybe_rehash();
-                if (r) index = hasher(k) % bucket_count();
-                bucket_type &b = buckets[index];
-
-                if (b.isEmpty()) {
-                    // piecewise construct instantiation inspired by GNU source
-                    element = new value_type(
-                            std::piecewise_construct,
-                            std::forward_as_tuple(std::move(k)),
-                            std::tuple<>());
-                    b.insert_node(element);
-                } else {
-                    bucket_node *ptr = new bucket_node(value_type(
-                            std::piecewise_construct,
-                            std::forward_as_tuple(std::move(k)),
-                            std::tuple<>()));
-                    b.insert_node(ptr);
-                    element = &ptr->element;
-                }
-
-                ++_element_count;
-            }
-
-            return element->second;
-        }
-
-        /**
-         * @brief Access to map elements.
-         * @param k The key for which a mapped value should be returned.
-         * @return A reference to the value associated with k, if it exists.
-         *
-         * Return the value mapped to the provided key. If it doesn't exist in
-         * the map, throw an out_of_range error.
-         */
-        Val& at(const Key &k) {
-            size_t index = hasher(k) % bucket_count();
-            value_type *element = buckets[index].search(k);
-
-            if (!element) {
-                throw std::out_of_range("Hashmap::at");
-            }
-
-            return element->second;
-        }
-
-        /**
-         *
-         * @param k The key for which to count elements.
-         * @return The number of elements with the provided key (1 or 0).
-         *
-         * As there can be no duplicate key, this will only return 1 or 0.
-         */
-        size_t count(const Key &k) const {
-            size_t index = hasher(k) % bucket_count();
-            value_type *element = buckets[index].search(k);
-
-            if (element) {
-                return 1;
-            }
-            return 0;
-        }
-
-        // rehashing
-
-        /// Returns maximum ratio of elements to buckets.
-        float max_load_factor() const noexcept {
-            return _max_load_factor;
-        }
-
-        /// Setter for the maximum load factor.
-        void max_load_factor(float f) {
-            _max_load_factor = f;
-        }
-
-        /// Returns the current ratio of elements to buckets.
-        float load_factor() const noexcept {
-            return static_cast<float>(size()) / static_cast<float>(bucket_count());
-        }
-
-        void rehash(size_t new_size) {
-            // no point rehashing to smaller size.
-            if (new_size <= bucket_count()) return;
-
-            vector_type temp(new_size);
-            d_iterator cur = dbegin();
-            d_iterator end_ = dend();
-
-            while (cur != end_) {
-                size_t index = hasher(cur->first) % new_size;
-                bucket_type &b = temp[index];
-
-                if (b.isEmpty()) {
-                    b.insert_node(new value_type(std::move(*cur)));
-                } else {
-                    b.insert_node(new bucket_node(value_type(std::move(*cur))));
-                }
-
-                ++cur;
-            }
-
-            buckets.swap(temp);
-        }
-
-        // iterators
-
-        iterator begin() {
-            v_iterator b = buckets.begin();
-            v_iterator e = buckets.end();
-            return iterator(b, e);
-        }
-
-        iterator end() {
-            v_iterator e = buckets.end();
-            return iterator(e, e);
-        }
-
-    private:
-        d_iterator dbegin() {
-            v_iterator b = buckets.begin();
-            v_iterator e = buckets.end();
-            return d_iterator(b, e);
-        }
-
-        d_iterator dend() {
-            v_iterator e = buckets.end();
-            return d_iterator(e, e);
-        }
-
-        bool maybe_rehash() {
-            // check if rehash needed, and if so, new array size.
-            std::pair<bool, size_t> need_rehash = check_rehash_needed();
-
-            if (need_rehash.first) {
-                rehash(need_rehash.second);
-                return true;
-            }
-            return false;
-        }
-
-        /**
-         * If a rehash is needed, pick the new size for the array.
-         * @return std::pair(true, new_size) if rehash is needed.
-         */
-        std::pair<bool, size_t> check_rehash_needed() {
-            if (load_factor() < max_load_factor()) {
-                return std::pair<bool, size_t>(false, 0);
-            }
-
-            // quick and dirty for now.
-            size_t new_size = (bucket_count() * 2) + 1;
-
-            return std::pair<bool, size_t>(true, new_size);
-        };
-    };
 
     /**
      * Hash map implementation that conserves memory and uses our custom memory
@@ -347,15 +22,17 @@ namespace drt {
      *              a default value if omitted)
      */
     template<class Key, class Val, class Hash, size_t S>
-    class Hashmap<Key, Val, Hash, MyPoolAllocator<Key, Val, S>> {
+    class Hashmap {
 
     public:
+        using key_type        =  Key;
+        using mapped_type     =  Val;
+        using value_type      =  std::pair<const Key, Val>;
         using allocator_type  =  MyPoolAllocator<Key, Val, S>;
-        using value_type    =  std::pair<const Key, Val>;
-        using iterator        =  drtx::HashMapIterator<Key, Val, Hash, allocator_type>;
+        using iterator        =  drtx::HashMapIterator<Key, Val, Hash>;
 
     private:
-        using bucket_type     =  drtx::Bucket<Key, Val, Hash, allocator_type, true>;
+        using bucket_type     =  drtx::Bucket<Key, Val, Hash, true>;
         using bucket_node     =  typename bucket_type::BNode;
         using vector_type     =  std::vector<bucket_type>;
         using v_iterator      =  typename vector_type::iterator;
@@ -368,7 +45,7 @@ namespace drt {
         float _max_load_factor = 1.0;
 
         // needs access to buckets
-        friend class drtx::HashMapIterator<Key, Val, Hash, allocator_type>;
+        friend class drtx::HashMapIterator<Key, Val, Hash>;
 
     public:
         // constructors & destructor
@@ -751,6 +428,332 @@ namespace drt {
                 buckets[to_update].update_element(prev, ptr);
             }
         }
+    };
+
+    /**
+     * Hash map implementation that conserves memory.
+     *
+     * @tparam Key   Type of key objects.
+     * @tparam Val   Type of mapped objects.
+     * @tparam Hash  Type of hash function used for value lookups.
+     * @tparam Alloc Unused parameter that is provided to allow pool
+     *               specialization and let us reuse components.
+     */
+    template<class Key, class Val, class Hash = std::hash<Key>>
+    class DefHashmap : public Hashmap<Key, Val, Hash, 1> {
+
+        /*
+         * Doesn't work; ignore for now. Will likely be deleted at a later date.
+         */
+
+    public:
+        using key_type     =  Key;
+        using mapped_type  =  Val;
+        using value_type   =  std::pair<const Key, Val>;
+        using iterator     =  drtx::HashMapIterator<Key, Val, Hash>;
+
+    private:
+        using bucket_type   =  drtx::Bucket<Key, Val, Hash, false>;
+        using bucket_node   =  typename bucket_type::BNode;
+        using vector_type   =  std::vector<bucket_type>;
+        using v_iterator    =  typename vector_type::iterator;
+        using d_iterator    =  drtx::DestructiveIterator<Key, Val, Hash>;
+
+        vector_type buckets;
+        Hash hasher;
+
+        size_t _element_count = 0;
+        float _max_load_factor = 1.0;
+
+        friend class drtx::HashMapIterator<Key, Val, Hash>;
+        friend class drtx::DestructiveIterator<Key, Val, Hash>;
+
+    public:
+        // constructors & destructor
+
+        DefHashmap() : buckets(1), hasher() { }
+
+        DefHashmap(size_t n, const Hash &hf = Hash()) : buckets(n), hasher(hf) { }
+
+        ~DefHashmap() = default;
+        DefHashmap(const DefHashmap&) = default;
+        DefHashmap& operator=(const DefHashmap&) = default;
+        DefHashmap(DefHashmap&&) = default;
+        DefHashmap& operator=(DefHashmap&&) = default;
+
+        // size & capacity
+
+        /// Returns the number of elements in the map.
+        size_t size() const {
+            return _element_count;
+        }
+
+        /// Returns maximum number of elements that can be stored.
+        size_t max_size() const {
+            return buckets.max_size();
+        }
+
+        /// Returns the number of buckets in the map.
+        size_t bucket_count() const {
+            return buckets.capacity();
+        }
+
+        /// Returns true if there are no elements in the map.
+        bool empty() const {
+            return _element_count == 0;
+        }
+
+        // modifiers
+
+        /// Removes all elements from the map. Buckets are preserved.
+        void clear() {
+            v_iterator it = buckets.begin();
+
+            for (; it != buckets.end(); ++it) {
+                it->~Bucket();
+            }
+
+            _element_count = 0;
+        }
+
+        /**
+         * Removes and destroys the element corresponding to key k.
+         *
+         * @param k Key of the element to be removed.
+         * @return  The number of elements that were removed (0 or 1).
+         */
+        size_t erase(const Key &k) {
+            size_t index = hasher(k) % bucket_count();
+            value_type *element = buckets[index].search(k);
+
+            if (!element) return 0;
+            // pair<bool, bucket_node*>
+            auto removed = buckets[index].remove_node(element);
+
+            if (removed.first) {
+                delete element;
+
+                if (removed.second) {
+                    /* We removed an element, meaning that a node is at the tail
+                    of a bucket. This node needs to be converted to an element */
+                    value_type *replacement = new value_type(std::move(removed.second->element));
+                    buckets[index].update_element(removed.second, replacement);
+                    delete removed.second;
+                }
+            } else {
+                bucket_node *node = reinterpret_cast<bucket_node*>(element);
+                delete node;
+            }
+
+            _element_count -= 1;
+            return 1;
+        }
+
+        // insert/emplace methods?
+
+        // lookup
+
+        /**
+         * @brief @c [] access to map elements.
+         * @param k The key for which a mapped value should be returned.
+         * @return A reference to the value associated with k.
+         */
+        Val& operator[](const Key &k) {
+            size_t index = hasher(k) % bucket_count();
+            value_type *element = buckets[index].search(k);
+
+            if (!element) {
+                // perform rehash first, if needed.
+                bool r = maybe_rehash();
+                if (r) index = hasher(k) % bucket_count();
+                bucket_type &b = buckets[index];
+
+                if (b.isEmpty()) {
+                    // piecewise construct instantiation inspired by GNU source
+                    element = new value_type(
+                            std::piecewise_construct,
+                            std::tuple<const Key&>(k),
+                            std::tuple<>());
+                    b.insert_node(element);
+                } else {
+                    bucket_node *ptr = new bucket_node(value_type(
+                            std::piecewise_construct,
+                            std::tuple<const Key&>(k),
+                            std::tuple<>()));
+                    b.insert_node(ptr);
+                    element = &ptr->element;
+                }
+
+                ++_element_count;
+            }
+
+            return element->second;
+        }
+
+        /**
+         * @brief @c [] access to map elements.
+         * @param k The key for which a mapped value should be returned.
+         * @return A reference to the value associated with k.
+         */
+        Val& operator[](Key &&k) {
+            size_t index = hasher(k) % bucket_count();
+            value_type *element = buckets[index].search(k);
+
+            if (!element) {
+                // perform rehash first, if needed.
+                bool r = maybe_rehash();
+                if (r) index = hasher(k) % bucket_count();
+                bucket_type &b = buckets[index];
+
+                if (b.isEmpty()) {
+                    // piecewise construct instantiation inspired by GNU source
+                    element = new value_type(
+                            std::piecewise_construct,
+                            std::forward_as_tuple(std::move(k)),
+                            std::tuple<>());
+                    b.insert_node(element);
+                } else {
+                    bucket_node *ptr = new bucket_node(value_type(
+                            std::piecewise_construct,
+                            std::forward_as_tuple(std::move(k)),
+                            std::tuple<>()));
+                    b.insert_node(ptr);
+                    element = &ptr->element;
+                }
+
+                ++_element_count;
+            }
+
+            return element->second;
+        }
+
+        /**
+         * @brief Access to map elements.
+         * @param k The key for which a mapped value should be returned.
+         * @return A reference to the value associated with k, if it exists.
+         *
+         * Return the value mapped to the provided key. If it doesn't exist in
+         * the map, throw an out_of_range error.
+         */
+        Val& at(const Key &k) {
+            size_t index = hasher(k) % bucket_count();
+            value_type *element = buckets[index].search(k);
+
+            if (!element) {
+                throw std::out_of_range("Hashmap::at");
+            }
+
+            return element->second;
+        }
+
+        /**
+         *
+         * @param k The key for which to count elements.
+         * @return The number of elements with the provided key (1 or 0).
+         *
+         * As there can be no duplicate key, this will only return 1 or 0.
+         */
+        size_t count(const Key &k) const {
+            size_t index = hasher(k) % bucket_count();
+            value_type *element = buckets[index].search(k);
+
+            if (element) {
+                return 1;
+            }
+            return 0;
+        }
+
+        // rehashing
+
+        /// Returns maximum ratio of elements to buckets.
+        float max_load_factor() const noexcept {
+            return _max_load_factor;
+        }
+
+        /// Setter for the maximum load factor.
+        void max_load_factor(float f) {
+            _max_load_factor = f;
+        }
+
+        /// Returns the current ratio of elements to buckets.
+        float load_factor() const noexcept {
+            return static_cast<float>(size()) / static_cast<float>(bucket_count());
+        }
+
+        void rehash(size_t new_size) {
+            // no point rehashing to smaller size.
+            if (new_size <= bucket_count()) return;
+
+            vector_type temp(new_size);
+            d_iterator cur = dbegin();
+            d_iterator end_ = dend();
+
+            while (cur != end_) {
+                size_t index = hasher(cur->first) % new_size;
+                bucket_type &b = temp[index];
+
+                if (b.isEmpty()) {
+                    b.insert_node(new value_type(std::move(*cur)));
+                } else {
+                    b.insert_node(new bucket_node(value_type(std::move(*cur))));
+                }
+
+                ++cur;
+            }
+
+            buckets.swap(temp);
+        }
+
+        // iterators
+
+        iterator begin() {
+            v_iterator b = buckets.begin();
+            v_iterator e = buckets.end();
+            return iterator(b, e);
+        }
+
+        iterator end() {
+            v_iterator e = buckets.end();
+            return iterator(e, e);
+        }
+
+    private:
+        d_iterator dbegin() {
+            v_iterator b = buckets.begin();
+            v_iterator e = buckets.end();
+            return d_iterator(b, e);
+        }
+
+        d_iterator dend() {
+            v_iterator e = buckets.end();
+            return d_iterator(e, e);
+        }
+
+        bool maybe_rehash() {
+            // check if rehash needed, and if so, new array size.
+            std::pair<bool, size_t> need_rehash = check_rehash_needed();
+
+            if (need_rehash.first) {
+                rehash(need_rehash.second);
+                return true;
+            }
+            return false;
+        }
+
+        /**
+         * If a rehash is needed, pick the new size for the array.
+         * @return std::pair(true, new_size) if rehash is needed.
+         */
+        std::pair<bool, size_t> check_rehash_needed() {
+            if (load_factor() < max_load_factor()) {
+                return std::pair<bool, size_t>(false, 0);
+            }
+
+            // quick and dirty for now.
+            size_t new_size = (bucket_count() * 2) + 1;
+
+            return std::pair<bool, size_t>(true, new_size);
+        };
     };
 
 } // namespace drt
