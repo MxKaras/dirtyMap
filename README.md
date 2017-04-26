@@ -25,4 +25,4 @@ If you want to compile the tests do a CMake out of source build,
 although past the first one I'd recommend compiling the benchmarks
 yourself:
 
-> g++ -std=c++11 -O2 -I ../../ <file>.cc -o name
+> g++ -std=c++11 -O2 -I ../../ \<file\>.cc -o name
