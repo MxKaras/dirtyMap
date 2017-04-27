@@ -6,6 +6,9 @@ add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR})
 cxx_executable(insertion_test unit gtest_main)
 target_link_libraries(insertion_test fypMaps)
 
+cxx_executable(erase_test unit gtest_main)
+target_link_libraries(erase_test fypMaps)
+
 
 # PERFORMANCE TESTS
 option(STD "test std" OFF)
