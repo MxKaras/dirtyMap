@@ -108,7 +108,8 @@ namespace drtx {
                 return bool_ptr(true, b);
             }
 
-            bNode *node_to_remove = reinterpret_cast<bNode*>(b->next);
+            // to_remove is a node
+            bNode *node_to_remove = reinterpret_cast<bNode*>(to_remove);
             b->next = node_to_remove->next;
             node_to_remove->next = nullptr;
 
