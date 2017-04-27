@@ -10,7 +10,7 @@ namespace drt {
 
 namespace drtx {
 
-    template<typename Key, typename Val, class Hash>
+    template<typename Key, typename Val, class Hash, size_t S>
     class BucketIterator;
 
     template<typename T>
@@ -27,12 +27,12 @@ namespace drtx {
         ~_bNode() = default;
     };
 
-    template<typename Key, typename Val, class Hash>
+    template<typename Key, typename Val, class Hash, size_t S>
     struct _bucketBase {
 
-        using value_type  =  typename Hashmap<Key, Val, Hash>::value_type;
+        using value_type  =  typename Hashmap<Key, Val, Hash, S>::value_type;
         using bNode       =  _bNode<value_type>;
-        using iterator    =  BucketIterator<Key, Val, Hash>;
+        using iterator    =  BucketIterator<Key, Val, Hash, S>;
         // misc return type alias for brevity
         using bool_ptr    =  std::pair<bool, bNode*>;
 
@@ -226,17 +226,17 @@ namespace drtx {
      * @tparam Key Type of key object.
      * @tparam Val Type of mapped objects.
      */
-    template<typename Key, typename Val, class Hash, bool no_destroy = true>
+    template<typename Key, typename Val, class Hash, size_t S, bool no_destroy = true>
     struct Bucket;
 
     /// Bucket for pooled hashmap.
-    template<typename Key, typename Val, class Hash>
-    struct Bucket<Key, Val, Hash, true>
-            : public _bucketBase<Key, Val, Hash> {
+    template<typename Key, typename Val, class Hash, size_t S>
+    struct Bucket<Key, Val, Hash, S, true>
+            : public _bucketBase<Key, Val, Hash, S> {
 
-        using value_type  = typename _bucketBase<Key, Val, Hash>::value_type;
-        using iterator      = typename _bucketBase<Key, Val, Hash>::iterator;
-        using bool_ptr      = typename _bucketBase<Key, Val, Hash>::bool_ptr;
+        using value_type  = typename _bucketBase<Key, Val, Hash, S>::value_type;
+        using iterator      = typename _bucketBase<Key, Val, Hash, S>::iterator;
+        using bool_ptr      = typename _bucketBase<Key, Val, Hash, S>::bool_ptr;
 
         struct BNode : public _bNode<value_type> {
             using parent = _bNode<value_type>;
@@ -252,55 +252,6 @@ namespace drtx {
 
         Bucket() = default;
         ~Bucket() = default;
-    };
-
-    /// Bucket for non-pooled (i.e. default) hashmap
-    template<typename Key, typename Val, class Hash>
-    struct Bucket<Key, Val, Hash, false>
-            : public _bucketBase<Key, Val, Hash> {
-
-        using value_type  = typename _bucketBase<Key, Val, Hash>::value_type;
-        using iterator      = typename _bucketBase<Key, Val, Hash>::iterator;
-        using bool_ptr      = typename _bucketBase<Key, Val, Hash>::bool_ptr;
-
-        struct BNode : public _bNode<value_type> {
-            using parent = _bNode<value_type>;
-
-            BNode(value_type &&e) noexcept : parent(std::move(e)) { }
-            BNode() : parent() { }
-
-            ~BNode() {
-                if (this->next) {
-                    uintptr_t p = reinterpret_cast<uintptr_t>(this->next);
-
-                    if ((p & 3) == 1) {
-                        delete reinterpret_cast<value_type*>(p & ~1);
-                    } else {
-                        delete reinterpret_cast<BNode*>(p);
-                    }
-                }
-            }
-
-            BNode(const BNode &) = default;
-            BNode &operator=(const BNode &) = default;
-            BNode(BNode &&) = default;
-            BNode &operator=(BNode &&) = default;
-        };
-
-        Bucket() = default;
-
-        ~Bucket() {
-            if (this->head) {
-                uintptr_t p = reinterpret_cast<uintptr_t>(this->head);
-                this->head = nullptr;
-
-                if (this->isTail(p)) {
-                    delete reinterpret_cast<value_type*>(p & ~1);
-                } else {
-                    delete reinterpret_cast<BNode*>(p & ~3);
-                }
-            }
-        }
     };
 
 } // namespace drtx
