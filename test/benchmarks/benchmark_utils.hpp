@@ -9,6 +9,7 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <unordered_map>
 
 namespace drt_testing {
 
@@ -76,7 +77,7 @@ namespace drt_testing {
         size_t size = v.size();
 
         for (size_t i = 0; i < size; ++i) {
-            h[v[i]] = 0;
+            h[v[i]] = 42;
         }
     };
 

@@ -13,9 +13,9 @@
 #elif GOOGLE
 #include <google/sparse_hash_map>
 #elif FYP
-#include "FYPMaps/HashMap.hpp"
+#include "dirtyMap/HashMap.hpp"
 #elif FYP_POOL
-#include "FYPMaps/HashMap.hpp"
+#include "dirtyMap/HashMap.hpp"
 #endif
 
 int main(int argc, char* argv[]) {
@@ -34,6 +34,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+//    using _t = int;
     using _t = uint64_t;
 
 #if STD
@@ -51,12 +52,8 @@ int main(int argc, char* argv[]) {
     map_type h;
     h.set_deleted_key(UINT64_MAX);
 #elif FYP
-    std::string map_name = "drt::Hashmap";
-    using map_type = drt::Hashmap<_t, _t>;
-    map_type h;
-#elif FYP_POOL
-    std::string map_name = "drt::Hashmap (pooled - " + std::to_string(POOL_SIZE) + ")";
-    using map_type = drt::Hashmap<_t, _t, std::hash<_t>, drt::MyPoolAllocator<_t, _t, POOL_SIZE>>;
+    std::string map_name = "drt::Hashmap (" + std::to_string(POOL_SIZE) + ")";
+    using map_type = drt::Hashmap<_t, _t, std::hash<_t>, POOL_SIZE>;
     map_type h;
 #else
 #undef MAP_DEFINED
