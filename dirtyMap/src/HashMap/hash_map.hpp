@@ -106,11 +106,12 @@ namespace drt {
          */
         size_t erase(const Key &k) {
             size_t index = hasher(k) % bucket_count();
-            value_type *element = buckets[index].search(k);
+            bucket_type &b = buckets[index];
+            value_type *element = b.search(k);
 
             if (!element) return 0;
             // pair<bool, bucket_node*>
-            auto removed = buckets[index].remove_node(element);
+            auto removed = b.remove_node(element);
 
             if (removed.first) {
                 destroy_bucket_element(reinterpret_cast<void*>(element), element->first);
@@ -122,9 +123,9 @@ namespace drt {
                     value_type *replacement = static_cast<value_type*>(allocator.allocate(sizeof(value_type)));
                     new(replacement) value_type(std::move(removed.second->element));
                     // update bucket tail with new element
-                    buckets[index].update_element(reinterpret_cast<void*>(removed.second), replacement);
+                    b.update_element(reinterpret_cast<void*>(removed.second), replacement);
                     // destroy node and potentially update other moved node
-                    destroy_bucket_node(reinterpret_cast<void*>(element), removed.second->element.first);
+                    destroy_bucket_node(reinterpret_cast<void*>(removed.second), removed.second->element.first);
                 }
             } else {
                 destroy_bucket_node(reinterpret_cast<void*>(element), element->first);

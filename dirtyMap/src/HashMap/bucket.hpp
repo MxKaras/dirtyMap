@@ -89,21 +89,26 @@ namespace drtx {
          * return type inform Hashmap on what to do next.
          */
         bool_ptr remove_node(void *to_remove) {
-            if (isSingle()) {
+            if (flag(head) == 1) {
                 head = nullptr;
                 return bool_ptr(true, nullptr);
-            }
-
-            if (isHead(to_remove)) {
-                remove_first(reinterpret_cast<bNode*>(to_remove));
+            } else if (clean(head) == reinterpret_cast<uintptr_t>(to_remove)) {
+                bNode *r = reinterpret_cast<bNode*>(to_remove);
+                head = r->next;
+                r->next = nullptr;
                 return bool_ptr(false, nullptr);
             }
 
             // element to remove is somewhere past the first node
             bNode *b = node_before(to_remove);
             // to_remove might be the element at the end of the list
-            if (isTail(b->next)) {
-                remove_tail(b);
+            if (flag(b->next) == 1) {
+                b->next = nullptr;
+
+                if (clean(head) == reinterpret_cast<uintptr_t>(b)) {
+                    head = reinterpret_cast<void*>(clean(head) ^ 1);
+                }
+
                 // b needs to be moved from node -> element
                 return bool_ptr(true, b);
             }
@@ -120,13 +125,11 @@ namespace drtx {
          * Changes an invalid "next" pointer to the correct one.
          */
         void update_element(void *old_addr, void *new_addr) {
-            uintptr_t new_addr_p = reinterpret_cast<uintptr_t>(new_addr) ^ 1;
-
             if (isSingle()) {
-                head = reinterpret_cast<void*>(new_addr_p);
+                head = flag(new_addr, 1);
             } else {
                 bNode *b = node_before(old_addr);
-                b->next = reinterpret_cast<void*>(new_addr_p);
+                b->next = flag(new_addr, 1);
             }
         }
 
@@ -135,7 +138,7 @@ namespace drtx {
          */
         void update_node(void *old_addr, void *new_addr) {
             if (isHead(old_addr)) {
-                head = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(new_addr) ^ 3);
+                head = flag(new_addr, 3);
             } else {
                 bNode *b = node_before(old_addr);
                 b->next = new_addr;
@@ -186,9 +189,15 @@ namespace drtx {
             return reinterpret_cast<uintptr_t>(ptr) & ~3;
         }
 
+        /// Stores dirty bits in an address
         void* flag(void *ptr, unsigned int i) const {
             return reinterpret_cast<void*>(
                     reinterpret_cast<uintptr_t>(ptr) ^ i);
+        }
+
+        /// @return the value of some dirty bits
+        uintptr_t flag(void *ptr) const {
+            return reinterpret_cast<uintptr_t>(ptr) & 3;
         }
 
         /// Finds the bNode whose (cleaned) `next` is `ptr`.
@@ -199,25 +208,6 @@ namespace drtx {
                 b = reinterpret_cast<bNode*>(clean(b->next));
             }
             return b;
-        }
-
-        /// Removes the node pointed to by `head` (and updates head).
-        void remove_first(bNode *to_remove) {
-            if (isTail(to_remove->next)) {
-                head = to_remove->next;
-            } else {
-                uintptr_t head_p = reinterpret_cast<uintptr_t>(to_remove->next);
-                head = reinterpret_cast<void*>(head_p ^ 3);
-            }
-            to_remove->next = nullptr;
-        }
-
-        void remove_tail(bNode *penultimate) {
-            penultimate->next = nullptr;
-            uintptr_t p = reinterpret_cast<uintptr_t>(penultimate);
-            if (isHead(p)) {
-                head = reinterpret_cast<void*>(p ^ 1);
-            }
         }
     };
 
