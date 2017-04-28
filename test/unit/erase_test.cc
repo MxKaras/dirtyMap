@@ -89,6 +89,25 @@ TEST_F(EraseTest, removeMid2) {
     EXPECT_EQ(0, h[3]);
 }
 
+TEST_F(EraseTest, removeMid3) {
+    h[1] = 1;
+    h[2] = 2;
+    h[3] = 3;
+    h[4] = 4;
+    h.erase(2);
+    EXPECT_EQ(1, h[1]);
+}
+
+TEST_F(EraseTest, removeMid4) {
+    h[1] = 1;
+    h[2] = 2;
+    h[3] = 3;
+    h[4] = 4;
+    h[5] = 5;
+    h.erase(3);
+    EXPECT_EQ(1, h[1]);
+}
+
 TEST_F(EraseTest, clear1) {
     for (int i = 0; i < 5; ++i) {
         h[i] = i;
