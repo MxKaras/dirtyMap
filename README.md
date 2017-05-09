@@ -3,10 +3,13 @@
 dirtyMap is a memory-efficient hash map implementation
 using separate chaining. Buckets eliminate the need for nullptr-terminated
 lists through the use of dirty bits (hence the name).
+Furthermore, a custom-built memory allocator is used to provide fast and
+cache friendly access to stored objects.
 
-This started as a university project, that I am bringing
+This started as a university project that I am bringing
 into the world and will be working on in my spare time.
-It's not production ready yet, but feel free to take a look.
+There are still a few kinks to iron out before it's production ready,
+but feel free to take a look.
 
 I've only tested the code on Ubuntu, with GCC 5.4.
 No guarantees are made concerning it's compatibility in other
@@ -19,6 +22,7 @@ Installation is easy - drop the dirtyMap directory into
 #include <dirtyMap/Hashmap.hpp>
 ...
 drt::Hashmap<int, int> m;
+drt::Hashmap<int, int, 1000> k; // specify number of objects per pool
 ```
 
 If you want to compile the tests do a CMake out of source build,
