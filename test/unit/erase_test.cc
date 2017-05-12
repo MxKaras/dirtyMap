@@ -1,6 +1,6 @@
 #include <functional>
 #include "gtest/gtest.h"
-#include "hash_function.hpp"
+#include "test_utils.hpp"
 #include "dirtyMap/HashMap.hpp"
 
 using namespace drt;
