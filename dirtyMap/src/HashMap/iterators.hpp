@@ -8,10 +8,10 @@ namespace drtx {
     /**
      * Iterator class that traverses up the list of elements stored in a bucket.
      */
-    template<typename Key, typename Val, class Hash, size_t S>
+    template<typename Key, typename Val, class Hash>
     class BucketIterator {
     private:
-        using bucket       = Bucket<Key, Val, Hash, S>;
+        using bucket       = Bucket<Key, Val, Hash>;
         using node         = typename bucket::BNode;
         using value_type   = typename bucket::value_type;
 
@@ -70,10 +70,10 @@ namespace drtx {
      * travel up the vector until hitting upon an element, then travel up
      * the list at that location until reaching the end.
      */
-    template<typename Key, typename Val, class Hash, size_t S>
+    template<typename Key, typename Val, class Hash>
     class HashMapIterator {
     private:
-        using map_type     = drt::Hashmap<Key, Val, Hash, S>;
+        using map_type     = drt::Hashmap<Key, Val, Hash>;
         using bucket       = typename map_type::bucket_type;
         using value_type = typename map_type::value_type;
         using v_iterator   = typename map_type::v_iterator;
@@ -132,11 +132,11 @@ namespace drtx {
             return bit.current;
         }
 
-        bool operator==(const HashMapIterator<Key, Val, Hash, S> &other) const {
+        bool operator==(const HashMapIterator<Key, Val, Hash> &other) const {
             return (index == other.index) && (bit == other.bit);
         }
 
-        bool operator!=(const HashMapIterator<Key, Val, Hash, S> &other) const {
+        bool operator!=(const HashMapIterator<Key, Val, Hash> &other) const {
             return !(*this == other);
         }
 

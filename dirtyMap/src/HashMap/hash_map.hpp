@@ -21,38 +21,41 @@ namespace drt {
      * @tparam S    The number of objects to store in pool nodes (will defer to
      *              a default value if omitted)
      */
-    template<class Key, class Val, class Hash, size_t S>
+    template<class Key, class Val, class Hash>
     class Hashmap {
 
     public:
         using key_type        =  Key;
         using mapped_type     =  Val;
         using value_type      =  std::pair<const Key, Val>;
-        using allocator_type  =  MyPoolAllocator<Key, Val, S>;
-        using iterator        =  drtx::HashMapIterator<Key, Val, Hash, S>;
+        using iterator        =  drtx::HashMapIterator<Key, Val, Hash>;
 
     private:
-        using bucket_type     =  drtx::Bucket<Key, Val, Hash, S, true>;
+        using bucket_type     =  drtx::Bucket<Key, Val, Hash, true>;
         using bucket_node     =  typename bucket_type::BNode;
         using vector_type     =  std::vector<bucket_type>;
         using v_iterator      =  typename vector_type::iterator;
 
+        using elem_alloc_t    =  DtPoolAllocator<std::pair<const Key, Val>>;
+        using node_alloc_t    =  DtPoolAllocator<bucket_node>;
+
         vector_type buckets;
-        allocator_type allocator;
+        node_alloc_t node_alloc;
+        elem_alloc_t elem_alloc;
         Hash hasher;
 
         size_t _element_count = 0;
         float _max_load_factor = 1.0;
 
         // needs access to buckets
-        friend class drtx::HashMapIterator<Key, Val, Hash, S>;
+        friend class drtx::HashMapIterator<Key, Val, Hash>;
 
     public:
         // constructors & destructor
 
-        Hashmap() : buckets(1), hasher(), allocator() { }
+        Hashmap() : buckets(1), hasher(), node_alloc(), elem_alloc() { }
 
-        Hashmap(size_t n, const Hash &hf = Hash()) : buckets(n), hasher(hf), allocator() { }
+        Hashmap(size_t n, const Hash &hf = Hash()) : buckets(n), hasher(hf), node_alloc(), elem_alloc() { }
 
         ~Hashmap() = default;
         Hashmap(const Hashmap&) = default;
@@ -89,7 +92,8 @@ namespace drt {
          * of buckets.
          */
         void clear() {
-            allocator.destroyAll();
+            node_alloc.destroyAll();
+            elem_alloc.destroyAll();
 
             for (bucket_type &buk : buckets) {
                 buk.head = nullptr;
@@ -120,7 +124,7 @@ namespace drt {
                     /* We removed an element, leaving a node at the tail of
                     a bucket. This node needs to be converted to an element */
                     // first make element from node to be replaced
-                    value_type *replacement = static_cast<value_type*>(allocator.allocate(sizeof(value_type)));
+                    value_type *replacement = static_cast<value_type*>(elem_alloc.allocate());
                     new(replacement) value_type(std::move(removed.second->element));
                     // update bucket tail with new element
                     b.update_element(reinterpret_cast<void*>(removed.second), replacement);
@@ -156,13 +160,13 @@ namespace drt {
 
                 if (b.isEmpty()) {
                     // piecewise construct instantiation inspired by GNU source
-                    element = static_cast<value_type*>(allocator.allocate(sizeof(value_type)));
+                    element = static_cast<value_type*>(elem_alloc.allocate());
                     new(element) value_type(std::piecewise_construct,
                             std::tuple<const Key&>(k),
                             std::tuple<>());
                     b.insert_node(element);
                 } else {
-                    bucket_node *ptr = static_cast<bucket_node*>(allocator.allocate(sizeof(bucket_node)));
+                    bucket_node *ptr = static_cast<bucket_node*>(node_alloc.allocate());
                     new(ptr) bucket_node(value_type(std::piecewise_construct,
                             std::tuple<const Key&>(k),
                             std::tuple<>()));
@@ -193,13 +197,13 @@ namespace drt {
 
                 if (b.isEmpty()) {
                     // piecewise construct instantiation inspired by GNU source
-                    element = static_cast<value_type*>(allocator.allocate(sizeof(value_type)));
+                    element = static_cast<value_type*>(elem_alloc.allocate());
                     new(element) value_type(std::piecewise_construct,
                             std::forward_as_tuple(std::move(k)),
                             std::tuple<>());
                     b.insert_node(element);
                 } else {
-                    bucket_node *ptr = static_cast<bucket_node*>(allocator.allocate(sizeof(bucket_node)));
+                    bucket_node *ptr = static_cast<bucket_node*>(node_alloc.allocate());
                     new(ptr) bucket_node(value_type(std::piecewise_construct,
                             std::forward_as_tuple(std::move(k)),
                             std::tuple<>()));
@@ -337,8 +341,8 @@ namespace drt {
          * @param size The size of the vector.
          */
         void reassign_elements(vector_type &vec, size_t size) {
-            auto it = allocator.small_begin();
-            auto end_ = allocator.small_end();
+            auto it = elem_alloc.begin();
+            auto end_ = elem_alloc.end();
 
             for (; it != end_; ++it) {
                 value_type &element = *it;
@@ -354,13 +358,13 @@ namespace drt {
                     // in the node pool sweep.
 
                     // First make new node and put it in node pool
-                    bucket_node *node_ptr = static_cast<bucket_node*>(allocator.allocate(sizeof(bucket_node)));
+                    bucket_node *node_ptr = static_cast<bucket_node*>(node_alloc.allocate());
                     new(node_ptr) bucket_node(std::move(element));
                     // Remove original element from element pool
                     it.deallocate(&element);
                     // The deallocated block gets refilled, so need to look at this block again
                     --it;
-                    end_ = allocator.small_end();
+                    end_ = elem_alloc.end();
                 }
             }
         }
@@ -374,31 +378,28 @@ namespace drt {
          * @param size The size of the vector.
          */
         void reassign_nodes(vector_type &vec, size_t size) {
-            auto it = allocator.big_begin();
-            auto end_ = allocator.big_end();
+            auto it = node_alloc.begin();
+            auto end_ = node_alloc.end();
 
             for (; it != end_; ++it) {
-                bucket_node &node = static_cast<bucket_node&>(*it);
+                bucket_node &node = *it;
                 size_t index = hasher(node.element.first) % size;
                 bucket_type &b = vec[index];
 
                 if (b.isEmpty()) {
                     // inserting into empty bucket -> need to transfer pools
-                    value_type *ele_ptr = static_cast<value_type*>(allocator.allocate(sizeof(value_type)));
+                    value_type *ele_ptr = static_cast<value_type*>(elem_alloc.allocate());
                     new(ele_ptr) value_type(std::move(node.element));
                     // remove node from node pool
                     it.deallocate(&node);
                     --it;
-                    end_ = allocator.big_end();
+                    end_ = node_alloc.end();
                     b.insert_node(ele_ptr);
                 } else {
                     b.insert_node(&node);
                 }
             }
         }
-
-        /* Would ideally like to template these, but that would require making
-        template specialisation for Hashmap, which I don't want to do. */
 
         /**
          * Destroys node at `ptr` and updates invalidated bucket pointer if
@@ -407,7 +408,7 @@ namespace drt {
         void destroy_bucket_node(void *ptr, const Key &k) {
             // When object at ptr is destroyed, a new object may be moved
             // to its address, which changes the value of k.
-            void *prev = allocator.destroy(ptr, sizeof(bucket_node));
+            void *prev = node_alloc.destroy(ptr);
 
             if (prev) {
                 size_t to_update = hasher(k) % bucket_count();
@@ -422,7 +423,7 @@ namespace drt {
         void destroy_bucket_element(void *ptr, const Key &k) {
             // When object at ptr is destroyed, a new object may be moved
             // to its address, which changes the value of k.
-            void *prev = allocator.destroy(ptr, sizeof(value_type));
+            void *prev = elem_alloc.destroy(ptr);
 
             if (prev) {
                 size_t to_update = hasher(k) % bucket_count();
