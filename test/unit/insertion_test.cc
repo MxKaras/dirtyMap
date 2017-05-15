@@ -12,10 +12,10 @@ using namespace drt;
 class BasicTest : public ::testing::Test {
 
 protected:
-    using hmap = Hashmap<int, int, ZeroHF<int>, 5>;
+    using hmap = Hashmap<int, int, ZeroHF<int>>;
 
     virtual void SetUp() {
-        h = hmap(10);
+//        h = hmap(10);
     }
 
     hmap h;

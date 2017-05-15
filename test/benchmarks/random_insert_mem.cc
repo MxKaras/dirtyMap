@@ -47,8 +47,8 @@ int main(int argc, char* argv[]) {
     using map_type = google::sparse_hash_map<_t, _t>;
     map_type h;
 #elif FYP
-    std::string map_name = "drt::Hashmap (" + std::to_string(POOL_SIZE) + ")";
-    using map_type = drt::Hashmap<_t, _t, std::hash<_t>, POOL_SIZE>;
+    std::string map_name = "drt::Hashmap";
+    using map_type = drt::Hashmap<_t, _t, std::hash<_t>>;
     map_type h;
 #else
 #undef MAP_DEFINED
