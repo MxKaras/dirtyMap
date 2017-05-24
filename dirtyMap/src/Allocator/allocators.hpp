@@ -122,7 +122,7 @@ namespace drtx {
     public:
         using value_type = T;
 
-        DtPoolAllocator() {
+        DtPoolAllocator() : pools() {
             pools.reserve(16);
         }
 
@@ -165,15 +165,25 @@ namespace drtx {
 
         iterator begin() {
             auto it = pools.begin();
-            return iterator(this, it, it->begin());
+            return iterator(it, it->begin());
         }
 
         iterator end() {
-            if (pools.empty()) return begin();
-
             auto it = pools.end();
-            --it;
-            return iterator(this, it, it->end());
+            return iterator(it, it->begin());
+        }
+
+        // needed?
+        iterator find(void *ptr) {
+            int i = 0;
+
+            for (pool_type &s : pools) {
+                if (s.owns(ptr)) {
+                    auto it = pools.begin() + i;
+                    return iterator(it, it->find(ptr));
+                }
+                ++i;
+            }
         }
 
     private:
@@ -345,12 +355,12 @@ namespace drtx {
         using v_iterator = typename alloc_type::v_iterator;
         using p_iterator = typename alloc_type::pool_type::iterator;
 
-        DtPoolAllocator<T, C> *alloc;
+//        DtPoolAllocator<T, C> *alloc;
         v_iterator vit;
         p_iterator it;
 
-        DtIterator(alloc_type *a, v_iterator v, p_iterator i)
-                : alloc(a), vit(v), it(i) { }
+        DtIterator(v_iterator v, p_iterator i)
+                : vit(v), it(i) { }
 
         ~DtIterator() = default;
 
@@ -378,7 +388,7 @@ namespace drtx {
 
             if (it == vit->end()) {
                 ++vit;
-                if (vit != alloc->pools.end()) it = vit->begin();
+                it = vit->begin();
             }
 
             return *this;

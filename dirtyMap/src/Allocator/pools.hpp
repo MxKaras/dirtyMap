@@ -52,6 +52,9 @@ namespace drtx {
 
         ~_stackPoolBase() { delete storage; }
 
+        _stackPoolBase(const _stackPoolBase&) = default;
+        _stackPoolBase& operator=(const _stackPoolBase&) = default;
+
         _stackPoolBase(_stackPoolBase&& other) : sp(other.sp), storage(other.storage) {
             other.sp = 0;
             other.storage = nullptr;
@@ -155,6 +158,10 @@ namespace drtx {
             return iterator(reinterpret_cast<T*>(storage), size());
         }
 
+        iterator find(void *ptr) {
+            return iterator(reinterpret_cast<T*>(storage), index_of(ptr));
+        }
+
     protected:
         void set_sp(uintptr_t p) {
             sp = p;
@@ -166,6 +173,11 @@ namespace drtx {
 
         uintptr_t get_storage_u() const {
             return reinterpret_cast<uintptr_t>(storage);
+        }
+
+    private:
+        size_t index_of(void *ptr) const {
+            return (reinterpret_cast<uintptr_t>(ptr) - reinterpret_cast<uintptr_t>(storage)) / sizeof(T);
         }
     };
 
