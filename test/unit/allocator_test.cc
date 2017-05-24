@@ -72,3 +72,13 @@ TEST_F(AllocTest, iterators2) {
     ASSERT_EQ(4, *it);
 }
 
+TEST_F(AllocTest, findTest) {
+    addElements(11, 14, alloc, v);
+    auto it = alloc.find(v[3]);
+    ASSERT_EQ(3, *it);
+    ++it;
+    ++it;
+    auto e = alloc.end();
+    ASSERT_TRUE(it == alloc.end());
+}
+

@@ -11,7 +11,7 @@ protected:
     using hmap = Hashmap<int, int, ZeroHF<int>>;
 
     virtual void SetUp() {
-//        h = hmap(10);
+//        h = new hmap(10);
     }
 
     hmap h;

@@ -9,14 +9,20 @@ class StackedPoolTest : public ::testing::Test {
 protected:
 
     virtual void SetUp() {
+        v.reserve(5);
+
         for (int i = 0; i < 3; ++i) {
             new(pool.allocate()) int(i);
-            new(full_pool.allocate()) int(i);
+            auto p = full_pool.allocate();
+            new(p) int(i);
+            v.push_back(static_cast<int*>(p));
             new(foo_pool.allocate()) TestFoo<int>();
         }
 
         for (int i = 3; i < 5; ++i) {
-            new(full_pool.allocate()) int(i);
+            auto p = full_pool.allocate();
+            new(p) int(i);
+            v.push_back(static_cast<int*>(p));
         }
     }
 
@@ -24,6 +30,7 @@ protected:
     StackedPool<int, five_count> pool;
     StackedPool<int, five_count> full_pool;
     StackedPool<TestFoo<int>, five_count> foo_pool;
+    std::vector<int*> v;
 };
 
 TEST_F(StackedPoolTest, empty_capacity) {
@@ -59,11 +66,34 @@ TEST_F(StackedPoolTest, iterator_test) {
     ASSERT_TRUE(_start == _end);
 }
 
+TEST_F(StackedPoolTest, iterator_test2) {
+    auto start = full_pool.begin();
+    ++start;
+    ++start;
+    ++start;
+    ++start;
+    ++start;
+    ASSERT_TRUE(start == full_pool.end());
+    --start;
+    --start;
+    --start;
+    --start;
+    --start;
+    ASSERT_TRUE(start == full_pool.begin());
+}
+
 TEST_F(StackedPoolTest, deallocate_test) {
     pool.deallocate(&(*pool.begin()));
     // we removed the first element - last one should have
     // been moved into its slot
     ASSERT_EQ(2, *pool.begin());
+}
+
+TEST_F(StackedPoolTest, findTest) {
+    auto it = pool.find(v[2]);
+    ASSERT_EQ(2, *it);
+    ++it;
+    ASSERT_EQ(3, *it);
 }
 
 // the following tests are really for Valgrind

@@ -24,7 +24,7 @@ protected:
 TEST_F(BasicTest, TestEmpty) {
     EXPECT_TRUE(h.empty());
     EXPECT_EQ(0, h.size());
-    EXPECT_EQ(10, h.bucket_count());
+    EXPECT_EQ(1, h.bucket_count());
 }
 
 TEST_F(BasicTest, TestOp) {
