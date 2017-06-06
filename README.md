@@ -16,13 +16,12 @@ No guarantees are made concerning it's compatibility in other
 situations.
 
 Installation is easy - drop the dirtyMap directory into
-`/usr/local/include` (or wherever you'd like) and:
+`/usr/local/include` and:
 
 ```c++
 #include <dirtyMap/Hashmap.hpp>
 ...
 drt::Hashmap<int, int> m;
-drt::Hashmap<int, int, 1000> k; // specify number of objects per pool
 ```
 
 If you want to compile the tests do a CMake out of source build,
