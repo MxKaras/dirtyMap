@@ -52,15 +52,13 @@ namespace drtx {
 
         ~_stackPoolBase() { delete storage; }
 
-        _stackPoolBase(const _stackPoolBase&) = default;
-        _stackPoolBase& operator=(const _stackPoolBase&) = default;
-
-        _stackPoolBase(_stackPoolBase&& other) : sp(other.sp), storage(other.storage) {
+        // need noexcept so that pools are move-constructed when the pool vector resizes
+        _stackPoolBase(_stackPoolBase&& other) noexcept : sp(other.sp), storage(other.storage) {
             other.sp = 0;
             other.storage = nullptr;
         }
 
-        _stackPoolBase& operator=(_stackPoolBase&& other) {
+        _stackPoolBase& operator=(_stackPoolBase&& other) noexcept {
             if (this != &other) {
                 delete storage;
                 storage = other.storage;
@@ -272,6 +270,7 @@ namespace drtx {
         T *pool;
         size_t loc;
 
+        PoolIterator() : pool(nullptr), loc(0) {}
         PoolIterator(T *p, size_t i) : pool(p), loc(i) {}
 
         /// Return reference to pool element at current index.
@@ -306,6 +305,7 @@ namespace drtx {
         }
 
         bool operator==(const iterator &other) {
+            // comparing pool triggers valgrind on empty allocator
             return pool == other.pool && loc == other.loc;
         }
 
