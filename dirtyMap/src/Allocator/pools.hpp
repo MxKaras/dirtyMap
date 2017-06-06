@@ -2,30 +2,102 @@
 #ifndef FYP_MAPS_POOLS_HPP
 #define FYP_MAPS_POOLS_HPP
 
+#define MPAGE_SIZE 4096
+/*
+ * Buddy order MUST be a power of 2, and NOT greater than 1024.
+ * The resulting pool size = page size * buddy order
+ * i.e. 128 -> 0.5MB, 512 -> 2MB, etc (for 4K pages).
+ */
+#define MBUDDY_ORDER 256
+
 namespace drt {
 
 namespace drtx {
 
-    template<typename T, size_t size>
+    template<typename T, typename C>
     struct PoolIterator;
 
-    template<typename T, size_t size>
+    template<typename T>
+    struct buddy_mb_count {
+        enum { value = (MPAGE_SIZE * MBUDDY_ORDER) / sizeof(T) };
+    };
+
+    template<size_t N>
+    struct alignas(64) pool_storage {
+        unsigned char chunk[N];
+
+        pool_storage() = default;
+        ~pool_storage() = default;
+    };
+
+    template <typename T, typename obj_count>
     class _stackPoolBase {
 
-        friend class PoolIterator<T, size>;
+        using uchar  = unsigned char;
+        using pool_t = pool_storage<obj_count::value * sizeof(T)>;
 
-        using uchar = unsigned char;
+        friend class PoolIterator<T, obj_count>;
 
-        // address of next free block
         uintptr_t sp;
-        alignas(T) uchar chunk[size * sizeof(T)];
+        pool_t *storage;
 
     public:
-        using iterator   = PoolIterator<T, size>;
         using value_type = T;
+        using iterator   = PoolIterator<T, obj_count>;
 
         _stackPoolBase() {
-            sp = reinterpret_cast<uintptr_t>(&chunk);
+            storage = new pool_t();
+            sp = reinterpret_cast<uintptr_t>(storage);
+        }
+
+        ~_stackPoolBase() { delete storage; }
+
+        // need noexcept so that pools are move-constructed when the pool vector resizes
+        _stackPoolBase(_stackPoolBase&& other) noexcept : sp(other.sp), storage(other.storage) {
+            other.sp = 0;
+            other.storage = nullptr;
+        }
+
+        _stackPoolBase& operator=(_stackPoolBase&& other) noexcept {
+            if (this != &other) {
+                delete storage;
+                storage = other.storage;
+                sp = other.sp;
+                other.storage = nullptr;
+                other.sp = 0;
+            }
+
+            return *this;
+        }
+
+        /// @return the maximum number of objects that can be stored.
+        constexpr size_t capacity() const {
+            return obj_count::value;
+        }
+
+        /// @return the number of bytes held by the pool.
+        constexpr size_t capacity_bytes() const {
+            return capacity() * sizeof(T);
+        }
+
+        /// @return the number of objects stored in the pool.
+        size_t size() const {
+            return (sp - reinterpret_cast<uintptr_t>(storage)) / sizeof(T);
+        }
+
+        /// @return true if ptr points to an object within the pool.
+        bool owns(const void *ptr) const {
+            return ptr >= storage && ptr < reinterpret_cast<void*>(sp);
+        }
+
+        /// @return true if all blocks have been allocated.
+        bool full() const {
+            return size() == capacity();
+        }
+
+        /// @return true if all blocks are unallocated.
+        bool empty() const {
+            return sp == reinterpret_cast<uintptr_t>(storage);
         }
 
         /**
@@ -43,18 +115,13 @@ namespace drtx {
         /**
          * Removes an object from the pool. If this leaves a hole in the stack
          * then it is filled with the object at the top of the stack.
-         *
-         * Note: as this class was designed to be used by another, which does
-         * perform bounds checking before deallocating, no check is made to
-         * ensure that 'deallocated' belongs to this pool (or corresponds to
-         * the start of a block).
          */
         void deallocate(void *deallocated) {
             // replace deallocated block with last object in the array
             uintptr_t top = sp - sizeof(T);
-            T* replacement = reinterpret_cast<T*>(top);
 
-            if (deallocated < static_cast<void*>(replacement)) {
+            if (deallocated < reinterpret_cast<void*>(top)) {
+                T* replacement = reinterpret_cast<T*>(top);
                 new(deallocated) T(std::move(*replacement));
             }
 
@@ -79,54 +146,36 @@ namespace drtx {
             return reinterpret_cast<void*>(sp);
         }
 
-        /**
-         * Calls the destructor on all objects stored in this pool.
-         */
-        void destroyAll() {
-            T *obj = reinterpret_cast<T*>(&chunk);
-
-            for (int i = 0; i < next_index(); ++i, ++obj) {
-                obj->~T();
-            }
-        }
-
-        /**
-         * @param ptr A pointer.
-         * @return true if ptr points to allocated memory within the pool.
-         */
-        bool owns(const void *ptr) const {
-            return ptr >= chunk && ptr < reinterpret_cast<void*>(sp);
-        }
-
-        /// @return true if all blocks have been allocated.
-        bool full() const {
-            return next_index() == size;
-        }
-
-        /// @return true if all blocks are unallocated.
-        bool empty() const {
-            return sp == reinterpret_cast<uintptr_t>(chunk);
-        }
-
         /// @return iterator pointing to index 0 of array.
         iterator begin() {
-            return iterator(reinterpret_cast<T*>(chunk), 0);
+            return iterator(reinterpret_cast<T*>(storage), 0);
         }
 
         /// @return iterator pointing to one index past last allocated object.
         iterator end() {
-            return iterator(reinterpret_cast<T*>(chunk), next_index());
+            return iterator(reinterpret_cast<T*>(storage), size());
+        }
+
+        iterator find(void *ptr) {
+            return iterator(reinterpret_cast<T*>(storage), index_of(ptr));
+        }
+
+    protected:
+        void set_sp(uintptr_t p) {
+            sp = p;
+        }
+
+        pool_t* get_storage() const {
+            return storage;
+        }
+
+        uintptr_t get_storage_u() const {
+            return reinterpret_cast<uintptr_t>(storage);
         }
 
     private:
-        /// Converts address at 'sp' into the index it would be in a T[] array.
-        size_t next_index() const {
-            return (sp - reinterpret_cast<uintptr_t>(chunk)) / sizeof(T);
-        }
-
-        /// Converts address at p into the index it would be in a T[] array.
-        size_t index_of(const uintptr_t p) const {
-            return (p - reinterpret_cast<uintptr_t>(chunk)) / sizeof(T);
+        size_t index_of(void *ptr) const {
+            return (reinterpret_cast<uintptr_t>(ptr) - reinterpret_cast<uintptr_t>(storage)) / sizeof(T);
         }
     };
 
@@ -144,46 +193,65 @@ namespace drtx {
      * @tparam T The type of object to store.
      * @tparam size The number of T objects to reserve space for.
      */
-    template<typename T, size_t size,
+    template<typename T, typename obj_count = drtx::buddy_mb_count<T>,
             bool no_destruct = std::is_trivially_destructible<T>::value >
     class StackedPool;
 
     /// Partial speciality for storing objects that require no destruction.
-    template<typename T, size_t size>
-    class StackedPool<T, size, true> : public drtx::_stackPoolBase<T, size> {
-        using base_type = drtx::_stackPoolBase<T, size>;
+    template<typename T, typename obj_count>
+    class StackedPool<T, obj_count, true> : public drtx::_stackPoolBase<T, obj_count> {
+        using base_type = drtx::_stackPoolBase<T, obj_count>;
 
     public:
         using iterator   = typename base_type::iterator;
         using value_type = typename base_type::value_type;
 
-        StackedPool() : base_type() { }
-    };
+        StackedPool() = default;
+        ~StackedPool() = default;
+        StackedPool(const StackedPool&) = default;
+        StackedPool& operator=(const StackedPool&) = default;
+        StackedPool(StackedPool&&) = default;
+        StackedPool& operator=(StackedPool&&) = default;
 
-    /// Partial speciality for storing objects that require destruction.
-    template<typename T, size_t size>
-    class StackedPool<T, size, false> : public drtx::_stackPoolBase<T, size> {
-        using base_type = drtx::_stackPoolBase<T, size>;
-
-    public:
-        using iterator   = typename base_type::iterator;
-        using value_type = typename base_type::value_type;
-
-        StackedPool() : base_type() { }
-
-        ~StackedPool() {
-            // call destructors on all stored objects.
-            base_type::destroyAll();
+        void destroyAll() {
+            this->set_sp(this->get_storage_u());
         }
     };
 
-    template<typename T, size_t size>
-    inline bool operator==(const StackedPool<T, size> &lhs, const StackedPool<T, size> &rhs) {
-        return lhs.chunk == rhs.chunk;
+    /// Partial speciality for storing objects that require destruction.
+    template<typename T, typename obj_count>
+    class StackedPool<T, obj_count, false> : public drtx::_stackPoolBase<T, obj_count> {
+        using base_type = drtx::_stackPoolBase<T, obj_count>;
+
+    public:
+        using iterator   = typename base_type::iterator;
+        using value_type = typename base_type::value_type;
+
+        StackedPool() = default;
+        ~StackedPool() { destroyAll(); }
+        StackedPool(const StackedPool&) = default;
+        StackedPool& operator=(const StackedPool&) = default;
+        StackedPool(StackedPool&&) = default;
+        StackedPool& operator=(StackedPool&&) = default;
+
+        void destroyAll() {
+            T *obj = reinterpret_cast<T*>(this->get_storage_u());
+
+            for (int i = 0; i < this->size(); ++i, ++obj) {
+                obj->~T();
+            }
+
+            this->set_sp(this->get_storage_u());
+        }
+    };
+
+    template<typename T, typename C>
+    inline bool operator==(const StackedPool<T, C> &lhs, const StackedPool<T, C> &rhs) {
+        return lhs.storage == rhs.storage;
     }
 
-    template<typename T, size_t size>
-    inline bool operator!=(const StackedPool<T, size> &lhs, const StackedPool<T, size> &rhs) {
+    template<typename T, typename C>
+    inline bool operator!=(const StackedPool<T, C> &lhs, const StackedPool<T, C> &rhs) {
         return !(lhs == rhs);
     }
 
@@ -193,15 +261,16 @@ namespace drtx {
      * Iterator class for FixedPool. Simply iterates through the pool's array,
      * cast as type T.
      */
-    template<typename T, size_t size>
+    template<typename T, typename C>
     struct PoolIterator {
 
-        using pool_type = _stackPoolBase<T, size>;
+        using pool_type = _stackPoolBase<T, C>;
         using iterator  = typename pool_type::iterator;
 
         T *pool;
         size_t loc;
 
+        PoolIterator() : pool(nullptr), loc(0) {}
         PoolIterator(T *p, size_t i) : pool(p), loc(i) {}
 
         /// Return reference to pool element at current index.
@@ -236,6 +305,7 @@ namespace drtx {
         }
 
         bool operator==(const iterator &other) {
+            // comparing pool triggers valgrind on empty allocator
             return pool == other.pool && loc == other.loc;
         }
 

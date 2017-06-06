@@ -1,5 +1,5 @@
 #include "gtest/gtest.h"
-#include "hash_function.hpp"
+#include "test_utils.hpp"
 #include "dirtyMap/HashMap.hpp"
 
 using namespace drt;
@@ -12,10 +12,10 @@ using namespace drt;
 class BasicTest : public ::testing::Test {
 
 protected:
-    using hmap = Hashmap<int, int, ZeroHF<int>, 5>;
+    using hmap = Hashmap<int, int, ZeroHF<int>>;
 
     virtual void SetUp() {
-        h = hmap(10);
+//        h = hmap(10);
     }
 
     hmap h;
@@ -24,7 +24,7 @@ protected:
 TEST_F(BasicTest, TestEmpty) {
     EXPECT_TRUE(h.empty());
     EXPECT_EQ(0, h.size());
-    EXPECT_EQ(10, h.bucket_count());
+    EXPECT_EQ(1, h.bucket_count());
 }
 
 TEST_F(BasicTest, TestOp) {

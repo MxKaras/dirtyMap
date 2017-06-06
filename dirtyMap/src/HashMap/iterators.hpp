@@ -8,12 +8,12 @@ namespace drtx {
     /**
      * Iterator class that traverses up the list of elements stored in a bucket.
      */
-    template<typename Key, typename Val, class Hash, size_t S>
+    template<typename Key, typename Val, class Hash>
     class BucketIterator {
     private:
-        using bucket       = Bucket<Key, Val, Hash, S>;
-        using node         = typename bucket::BNode;
+        using bucket       = Bucket<Key, Val, Hash>;
         using value_type   = typename bucket::value_type;
+        using node         = _bNode<value_type>;
 
     public:
         void *current;
@@ -70,10 +70,10 @@ namespace drtx {
      * travel up the vector until hitting upon an element, then travel up
      * the list at that location until reaching the end.
      */
-    template<typename Key, typename Val, class Hash, size_t S>
+    template<typename Key, typename Val, class Hash>
     class HashMapIterator {
     private:
-        using map_type     = drt::Hashmap<Key, Val, Hash, S>;
+        using map_type     = drt::Hashmap<Key, Val, Hash>;
         using bucket       = typename map_type::bucket_type;
         using value_type = typename map_type::value_type;
         using v_iterator   = typename map_type::v_iterator;
@@ -132,85 +132,11 @@ namespace drtx {
             return bit.current;
         }
 
-        bool operator==(const HashMapIterator<Key, Val, Hash, S> &other) const {
+        bool operator==(const HashMapIterator<Key, Val, Hash> &other) const {
             return (index == other.index) && (bit == other.bit);
         }
 
-        bool operator!=(const HashMapIterator<Key, Val, Hash, S> &other) const {
-            return !(*this == other);
-        }
-
-    private:
-        void shiftIndex() {
-            while (index != end && index->isEmpty()) {
-                ++index;
-            }
-
-            // Prevent a BucketIterator from being created that points
-            // at an invalid memory address (valgrind finds this error).
-            if (index != end) {
-                bit = b_iterator(index->head);
-            }
-        }
-    };
-
-    /**
-     * Identical to HashMapIterator except for the fact that buckets are
-     * destroyed after we move on from them. This is used in the default
-     * version of Hashmap when rehashing.
-     */
-    template<typename Key, typename Val, class Hash>
-    class DestructiveIterator {
-    private:
-        using map_type     = drt::Hashmap<Key, Val, Hash>;
-        using bucket       = typename map_type::bucket_type;
-        using value_type = typename map_type::value_type;
-        using v_iterator   = typename map_type::v_iterator;
-        using b_iterator   = typename bucket::iterator;
-
-        v_iterator index;
-        v_iterator end;
-        b_iterator bit;
-
-    public:
-        DestructiveIterator(v_iterator &b, v_iterator &e)
-                : index(b), end(e), bit() {
-            // Move pointer to first location in the vector that
-            // contains an element.
-            shiftIndex();
-        }
-
-        value_type& operator*() {
-            return bit.operator*();
-        }
-
-        value_type* operator->() {
-            return bit.operator->();
-        }
-
-        /**
-         * Destroys the current bucket before moving to the next one.
-         */
-        DestructiveIterator& operator++() {
-            ++bit;
-
-            if (!bit.current) {
-                auto &b = *index;
-                b.~bucket();
-                shiftIndex();
-            }
-            return *this;
-        }
-
-        void* current() const {
-            return bit.current;
-        }
-
-        bool operator==(const DestructiveIterator<Key, Val, Hash> &other) const {
-            return (index == other.index) && (bit == other.bit);
-        }
-
-        bool operator!=(const DestructiveIterator<Key, Val, Hash> &other) const {
+        bool operator!=(const HashMapIterator<Key, Val, Hash> &other) const {
             return !(*this == other);
         }
 

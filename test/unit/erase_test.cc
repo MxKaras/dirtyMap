@@ -1,6 +1,6 @@
 #include <functional>
 #include "gtest/gtest.h"
-#include "hash_function.hpp"
+#include "test_utils.hpp"
 #include "dirtyMap/HashMap.hpp"
 
 using namespace drt;
@@ -8,10 +8,10 @@ using namespace drt;
 class EraseTest : public ::testing::Test {
 
 protected:
-    using hmap = Hashmap<int, int, ZeroHF<int>, 5>;
+    using hmap = Hashmap<int, int, ZeroHF<int>>;
 
     virtual void SetUp() {
-        h = hmap(10);
+//        h = new hmap(10);
     }
 
     hmap h;
@@ -119,7 +119,7 @@ TEST_F(EraseTest, clear1) {
 }
 
 TEST_F(EraseTest, clear2) {
-    Hashmap<int, int, std::hash<int>, 5> m(6);
+    Hashmap<int, int, std::hash<int>> m(6);
     for (int i = 1; i < 6; ++i) {
         m[i] = i;
     }

@@ -4,13 +4,12 @@
 
 namespace drt {
 
-    template<typename Key, typename Val, class Hash = std::hash<Key>,
-            size_t S = 4088 / sizeof(std::pair<Key, Val>) >
+    template<typename Key, typename Val, class Hash = std::hash<Key>>
     class Hashmap;
 
 namespace drtx {
 
-    template<typename Key, typename Val, class Hash, size_t S>
+    template<typename Key, typename Val, class Hash>
     class BucketIterator;
 
     template<typename T>
@@ -27,19 +26,25 @@ namespace drtx {
         ~_bNode() = default;
     };
 
-    template<typename Key, typename Val, class Hash, size_t S>
-    struct _bucketBase {
+    /**
+     * Container for nodes in the Hashmap.
+     *
+     * @tparam Key Type of key object.
+     * @tparam Val Type of mapped objects.
+     */
+    template<typename Key, typename Val, class Hash>
+    struct Bucket {
 
-        using value_type  =  typename Hashmap<Key, Val, Hash, S>::value_type;
+        using value_type  =  typename Hashmap<Key, Val, Hash>::value_type;
         using bNode       =  _bNode<value_type>;
-        using iterator    =  BucketIterator<Key, Val, Hash, S>;
+        using iterator    =  BucketIterator<Key, Val, Hash>;
         // misc return type alias for brevity
         using bool_ptr    =  std::pair<bool, bNode*>;
 
         void *head = nullptr;
 
-        _bucketBase() = default;
-        ~_bucketBase() = default;
+        Bucket() = default;
+        ~Bucket() = default;
 
         /**
          * Searches for an element with key = k.
@@ -209,40 +214,6 @@ namespace drtx {
             }
             return b;
         }
-    };
-
-    /**
-     * Container for nodes in the Hashmap.
-     *
-     * @tparam Key Type of key object.
-     * @tparam Val Type of mapped objects.
-     */
-    template<typename Key, typename Val, class Hash, size_t S, bool no_destroy = true>
-    struct Bucket;
-
-    /// Bucket for pooled hashmap.
-    template<typename Key, typename Val, class Hash, size_t S>
-    struct Bucket<Key, Val, Hash, S, true>
-            : public _bucketBase<Key, Val, Hash, S> {
-
-        using value_type  = typename _bucketBase<Key, Val, Hash, S>::value_type;
-        using iterator      = typename _bucketBase<Key, Val, Hash, S>::iterator;
-        using bool_ptr      = typename _bucketBase<Key, Val, Hash, S>::bool_ptr;
-
-        struct BNode : public _bNode<value_type> {
-            using parent = _bNode<value_type>;
-
-            BNode(value_type &&e) noexcept : parent(std::move(e)) { }
-            BNode() : parent() { }
-            ~BNode() = default;
-            BNode(const BNode &) = default;
-            BNode &operator=(const BNode &) = default;
-            BNode(BNode &&) = default;
-            BNode &operator=(BNode &&) = default;
-        };
-
-        Bucket() = default;
-        ~Bucket() = default;
     };
 
 } // namespace drtx

@@ -9,6 +9,12 @@ target_link_libraries(insertion_test fypMaps)
 cxx_executable(erase_test unit gtest_main)
 target_link_libraries(erase_test fypMaps)
 
+cxx_executable(pool_test unit gtest_main)
+target_link_libraries(pool_test fypMaps)
+
+cxx_executable(allocator_test unit gtest_main)
+target_link_libraries(allocator_test fypMaps)
+
 
 # PERFORMANCE TESTS
 option(STD "test std" OFF)
