@@ -31,8 +31,8 @@ namespace drt {
         using iterator        =  drtx::HashMapIterator<Key, Val, Hash>;
 
     private:
-        using bucket_type     =  drtx::Bucket<Key, Val, Hash, true>;
-        using bucket_node     =  typename bucket_type::BNode;
+        using bucket_type     =  drtx::Bucket<Key, Val, Hash>;
+        using bucket_node     =  drtx::_bNode<value_type>;
         using vector_type     =  std::vector<bucket_type>;
         using v_iterator      =  typename vector_type::iterator;
 

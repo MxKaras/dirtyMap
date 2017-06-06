@@ -26,8 +26,14 @@ namespace drtx {
         ~_bNode() = default;
     };
 
+    /**
+     * Container for nodes in the Hashmap.
+     *
+     * @tparam Key Type of key object.
+     * @tparam Val Type of mapped objects.
+     */
     template<typename Key, typename Val, class Hash>
-    struct _bucketBase {
+    struct Bucket {
 
         using value_type  =  typename Hashmap<Key, Val, Hash>::value_type;
         using bNode       =  _bNode<value_type>;
@@ -37,8 +43,8 @@ namespace drtx {
 
         void *head = nullptr;
 
-        _bucketBase() = default;
-        ~_bucketBase() = default;
+        Bucket() = default;
+        ~Bucket() = default;
 
         /**
          * Searches for an element with key = k.
@@ -208,40 +214,6 @@ namespace drtx {
             }
             return b;
         }
-    };
-
-    /**
-     * Container for nodes in the Hashmap.
-     *
-     * @tparam Key Type of key object.
-     * @tparam Val Type of mapped objects.
-     */
-    template<typename Key, typename Val, class Hash, bool no_destroy = true>
-    struct Bucket;
-
-    /// Bucket for pooled hashmap.
-    template<typename Key, typename Val, class Hash>
-    struct Bucket<Key, Val, Hash, true>
-            : public _bucketBase<Key, Val, Hash> {
-
-        using value_type  = typename _bucketBase<Key, Val, Hash>::value_type;
-        using iterator    = typename _bucketBase<Key, Val, Hash>::iterator;
-        using bool_ptr    = typename _bucketBase<Key, Val, Hash>::bool_ptr;
-
-        struct BNode : public _bNode<value_type> {
-            using parent = _bNode<value_type>;
-
-            BNode(value_type &&e) noexcept : parent(std::move(e)) { }
-            BNode() : parent() { }
-            ~BNode() = default;
-            BNode(const BNode &) = default;
-            BNode &operator=(const BNode &) = default;
-            BNode(BNode &&) = default;
-            BNode &operator=(BNode &&) = default;
-        };
-
-        Bucket() = default;
-        ~Bucket() = default;
     };
 
 } // namespace drtx

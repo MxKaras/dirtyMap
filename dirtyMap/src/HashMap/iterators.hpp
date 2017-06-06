@@ -12,8 +12,8 @@ namespace drtx {
     class BucketIterator {
     private:
         using bucket       = Bucket<Key, Val, Hash>;
-        using node         = typename bucket::BNode;
         using value_type   = typename bucket::value_type;
+        using node         = _bNode<value_type>;
 
     public:
         void *current;
