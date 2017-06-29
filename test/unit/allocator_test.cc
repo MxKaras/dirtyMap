@@ -18,6 +18,7 @@ protected:
     }
 
     DtPoolAllocator<int, five_count> alloc;
+    DtPoolAllocator<int, five_count> empty;
     std::vector<int*> v;
 };
 
@@ -63,22 +64,28 @@ TEST_F(AllocTest, iterators2) {
     addElements(11, 14, alloc, v);
 
     auto it = alloc.begin();
-    ++it;
-    ++it;
+    ++it; // 12
+    ++it; // 13
     ASSERT_EQ(13, *it);
-    ++it;
+    ++it;  // 0
     ASSERT_EQ(0, *it);
     it.deallocate(v[0]);
     ASSERT_EQ(4, *it);
-}
-
-TEST_F(AllocTest, findTest) {
-    addElements(11, 14, alloc, v);
-    auto it = alloc.find(v[3]);
-    ASSERT_EQ(3, *it);
-    ++it;
-    ++it;
-    auto e = alloc.end();
+    ++it; // 1
+    ++it; // 2
+    ++it; // 3
+    ++it; // end
     ASSERT_TRUE(it == alloc.end());
 }
 
+TEST_F(AllocTest, iterators3) {
+    addElements(11, 12, alloc, v);
+    auto it = alloc.begin();
+    ++it;
+    ++it;
+    ASSERT_EQ(1, *it);
+}
+
+TEST_F(AllocTest, emptyIterators) {
+    ASSERT_TRUE(empty.begin() == empty.end());
+}
