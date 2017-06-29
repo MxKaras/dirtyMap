@@ -177,6 +177,15 @@ namespace drtx {
         size_t index_of(void *ptr) const {
             return (reinterpret_cast<uintptr_t>(ptr) - reinterpret_cast<uintptr_t>(storage)) / sizeof(T);
         }
+
+    public:
+        bool operator==(_stackPoolBase &other) {
+            return storage == other.storage;
+        }
+
+        bool operator!=(_stackPoolBase &other) {
+            return !(*this == other);
+        }
     };
 
 } // namespace drtx
@@ -244,16 +253,6 @@ namespace drtx {
             this->set_sp(this->get_storage_u());
         }
     };
-
-    template<typename T, typename C>
-    inline bool operator==(const StackedPool<T, C> &lhs, const StackedPool<T, C> &rhs) {
-        return lhs.storage == rhs.storage;
-    }
-
-    template<typename T, typename C>
-    inline bool operator!=(const StackedPool<T, C> &lhs, const StackedPool<T, C> &rhs) {
-        return !(lhs == rhs);
-    }
 
 namespace drtx {
 

@@ -19,7 +19,7 @@ namespace drtx {
         using iterator   = drtx::DtIterator<T, obj_count>;
         using v_iterator = typename std::vector<pool_type>::iterator;
 
-        friend class drtx::DtIterator<T, obj_count>;
+        friend struct drtx::DtIterator<T, obj_count>;
 
         std::vector<pool_type> pools;
 
@@ -28,6 +28,7 @@ namespace drtx {
 
         DtPoolAllocator() : pools() {
             pools.reserve(16);
+            pools.emplace_back();
         }
 
         ~DtPoolAllocator() = default;
@@ -43,6 +44,7 @@ namespace drtx {
             return (pools.front()).allocate();
         }
 
+        /// Use DtIterator::deallocate() instead if possible.
         void deallocate(void* ptr) {
             for (pool_type &s : pools) {
                 if (s.owns(ptr)) {
@@ -52,6 +54,7 @@ namespace drtx {
             }
         }
 
+        /// Use DtIterator::destroy() instead if possible.
         void* destroy(void* ptr) {
             for (pool_type &s : pools) {
                 if (s.owns(ptr)) {
@@ -63,31 +66,17 @@ namespace drtx {
 
         void destroyAll() {
             pools.clear();
-            pools.shrink_to_fit();
-            pools.reserve(16);
+            pools.emplace_back();
         }
 
         iterator begin() {
             auto it = pools.begin();
-            return iterator(it, it->begin());
+            return iterator(this, it, it->begin());
         }
 
         iterator end() {
-            auto it = pools.end();
-            return iterator(it, it->begin());
-        }
-
-        // needed?
-        iterator find(void *ptr) {
-            int i = 0;
-
-            for (pool_type &s : pools) {
-                if (s.owns(ptr)) {
-                    auto it = pools.begin() + i;
-                    return iterator(it, it->find(ptr));
-                }
-                ++i;
-            }
+            auto it = v_iterator(&pools.back());
+            return iterator(this, it, it->end());
         }
 
     private:
@@ -96,7 +85,7 @@ namespace drtx {
 
             for (pool_type &s : pools) {
                 ptr = s.allocate();
-                if (ptr) return ptr;
+                if (ptr) break;
             }
 
             return ptr;
@@ -119,23 +108,27 @@ namespace drtx {
         using v_iterator = typename alloc_type::v_iterator;
         using p_iterator = typename alloc_type::pool_type::iterator;
 
-//        DtPoolAllocator<T, C> *alloc;
+        alloc_type *alloc;
         v_iterator vit;
         p_iterator it;
 
-        DtIterator(v_iterator v, p_iterator i)
-                : vit(v), it(i) { }
+        DtIterator(alloc_type *a, v_iterator v, p_iterator i)
+                : alloc(a), vit(v), it(i) { }
 
         ~DtIterator() = default;
 
         /**
          * @brief Shortcut for deallocating an element when iterating through pools.
          *
-         * If we want to deallocate an element obtained through an iterator,
-         * doing so here is much faster than iterating through the whole list.
+         * Removes object from pool without calling destructor.
          */
         void deallocate(void *ptr) {
             vit->deallocate(ptr);
+        }
+
+        /// Removes object from pool and calls destructor.
+        void destroy(void *ptr) {
+            vit->destroy(ptr);
         }
 
         /// @return reference to current object in current pool.
@@ -150,7 +143,7 @@ namespace drtx {
         DtIterator& operator++() {
             ++it;
 
-            if (it == vit->end()) {
+            if (it.loc == vit->size() && *vit != alloc->pools.back()) {
                 ++vit;
                 it = vit->begin();
             }
