@@ -9,7 +9,7 @@ namespace drt {
 
 namespace drtx {
 
-    template<typename Key, typename Val, class Hash>
+    template<typename Val>
     class BucketIterator;
 
     template<typename T>
@@ -37,7 +37,7 @@ namespace drtx {
 
         using value_type  =  typename Hashmap<Key, Val, Hash>::value_type;
         using bNode       =  _bNode<value_type>;
-        using iterator    =  BucketIterator<Key, Val, Hash>;
+        using iterator    =  BucketIterator<value_type>;
         // misc return type alias for brevity
         using bool_ptr    =  std::pair<bool, bNode*>;
 

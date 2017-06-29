@@ -265,7 +265,6 @@ namespace drtx {
     struct PoolIterator {
 
         using pool_type = _stackPoolBase<T, C>;
-        using iterator  = typename pool_type::iterator;
 
         T *pool;
         size_t loc;
@@ -279,37 +278,37 @@ namespace drtx {
         }
 
         /// Prefix increment
-        iterator& operator++() {
+        PoolIterator& operator++() {
             ++loc;
             return *this;
         }
 
         /// Postfix increment
-        iterator operator++(int) {
-            iterator temp(*this);
+        PoolIterator operator++(int) {
+            PoolIterator temp(*this);
             ++loc;
             return temp;
         }
 
         /// Prefix decrement
-        iterator& operator--() {
+        PoolIterator& operator--() {
             --loc;
             return *this;
         }
 
         /// Postfix decrement
-        iterator operator--(int) {
-            iterator temp(*this);
+        PoolIterator operator--(int) {
+            PoolIterator temp(*this);
             --loc;
             return temp;
         }
 
-        bool operator==(const iterator &other) {
+        bool operator==(const PoolIterator<T, C> &other) {
             // comparing pool triggers valgrind on empty allocator
             return pool == other.pool && loc == other.loc;
         }
 
-        bool operator!=(const iterator &other) {
+        bool operator!=(const PoolIterator<T, C> &other) {
             return !(*this == other);
         }
     };

@@ -8,12 +8,11 @@ namespace drtx {
     /**
      * Iterator class that traverses up the list of elements stored in a bucket.
      */
-    template<typename Key, typename Val, class Hash>
+    template<typename Val>
     class BucketIterator {
     private:
-        using bucket       = Bucket<Key, Val, Hash>;
-        using value_type   = typename bucket::value_type;
-        using node         = _bNode<value_type>;
+        using value_type = Val;
+        using node       = _bNode<value_type>;
 
     public:
         void *current;
@@ -77,7 +76,7 @@ namespace drtx {
         using bucket       = typename map_type::bucket_type;
         using value_type = typename map_type::value_type;
         using v_iterator   = typename map_type::v_iterator;
-        using b_iterator   = typename bucket::iterator;
+        using b_iterator   = BucketIterator<value_type>;
 
         v_iterator index;
         v_iterator end;
