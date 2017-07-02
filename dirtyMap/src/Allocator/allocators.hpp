@@ -15,8 +15,11 @@ namespace drtx {
     template<typename T, typename obj_count = drtx::buddy_mb_count<T>>
     class DtPoolAllocator {
 
+    public:
         using pool_type  = StackedPool<T, obj_count>;
         using iterator   = drtx::DtIterator<T, obj_count>;
+
+    private:
         using v_iterator = typename std::vector<pool_type>::iterator;
 
         friend struct drtx::DtIterator<T, obj_count>;
@@ -33,6 +36,7 @@ namespace drtx {
 
         ~DtPoolAllocator() = default;
 
+        /// @return a pointer to a free block of memory.
         void* allocate() {
             // get block if available
             void* ptr = try_to_allocate();
@@ -40,8 +44,8 @@ namespace drtx {
 
             // need to create new pool
             pools.emplace_back();
-            switch_first();
-            return (pools.front()).allocate();
+            swap_with_front(pools.back());
+            return pools.front().allocate();
         }
 
         /// Use DtIterator::deallocate() instead if possible.
@@ -80,21 +84,30 @@ namespace drtx {
         }
 
     private:
+        /// @return a pointer to a free block of memory, if one exists.
         void* try_to_allocate() {
-            void* ptr = nullptr;
+            // try first pool
+            void* ptr = pools.front().allocate();
 
-            for (pool_type &s : pools) {
-                ptr = s.allocate();
-                if (ptr) break;
+            if (!ptr) {
+                // Look through remaining pools. If a non-full one is found,
+                // move it to the front for quick access next time.
+                for (size_t i = 1; i < pools.size(); ++i) {
+                    ptr = pools[i].allocate();
+
+                    if (ptr) {
+                        swap_with_front(pools[i]);
+                        break;
+                    }
+                }
             }
-
             return ptr;
         }
 
-        void switch_first() {
+        void swap_with_front(pool_type &p) {
             auto tmp = std::move(pools.front());
-            pools.front() = std::move(pools.back());
-            pools.back() = std::move(tmp);
+            pools.front() = std::move(p);
+            p = std::move(tmp);
         }
     };
 
