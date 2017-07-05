@@ -21,22 +21,20 @@ namespace drt {
      * @tparam S    The number of objects to store in pool nodes (will defer to
      *              a default value if omitted)
      */
-    template<class Key, class Val, class Hash>
+    template<class Key, class Val, class Hash = std::hash<Key>>
     class Hashmap {
 
     public:
         using key_type        =  Key;
         using mapped_type     =  Val;
         using value_type      =  std::pair<const Key, Val>;
-        using iterator        =  drtx::HashMapIterator<Key, Val, Hash>;
 
     private:
-        using bucket_type     =  drtx::Bucket<Key, Val, Hash>;
+        using bucket_type     =  drtx::Bucket<key_type, value_type>;
         using bucket_node     =  drtx::_bNode<value_type>;
         using vector_type     =  std::vector<bucket_type>;
         using v_iterator      =  typename vector_type::iterator;
-
-        using elem_alloc_t    =  DtPoolAllocator<std::pair<const Key, Val>>;
+        using elem_alloc_t    =  DtPoolAllocator<value_type>;
         using node_alloc_t    =  DtPoolAllocator<bucket_node>;
 
         vector_type buckets;
@@ -48,9 +46,11 @@ namespace drt {
         float _max_load_factor = 1.0;
 
         // needs access to buckets
-        friend class drtx::HashMapIterator<Key, Val, Hash>;
+        friend class drtx::HashMapIterator<Val, bucket_type, v_iterator>;
 
     public:
+        using iterator        =  drtx::HashMapIterator<Val, bucket_type, v_iterator>;
+
         // constructors & destructor
 
         Hashmap() : buckets(1), hasher(), node_alloc(), elem_alloc() { }
@@ -148,7 +148,7 @@ namespace drt {
          * @param k The key for which a mapped value should be returned.
          * @return A reference to the value associated with k.
          */
-        Val& operator[](const Key &k) {
+        mapped_type& operator[](const Key &k) {
             size_t index = hasher(k) % bucket_count();
             value_type *element = buckets[index].search(k);
 
@@ -185,7 +185,7 @@ namespace drt {
          * @param k The key for which a mapped value should be returned.
          * @return A reference to the value associated with k.
          */
-        Val& operator[](Key &&k) {
+        mapped_type& operator[](Key &&k) {
             size_t index = hasher(k) % bucket_count();
             value_type *element = buckets[index].search(k);
 
@@ -225,7 +225,7 @@ namespace drt {
          * Return the value mapped to the provided key. If it doesn't exist in
          * the map, throw an out_of_range error.
          */
-        Val& at(const Key &k) {
+        mapped_type& at(const Key &k) {
             size_t index = hasher(k) % bucket_count();
             value_type *element = buckets[index].search(k);
 
