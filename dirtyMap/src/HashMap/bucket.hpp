@@ -3,13 +3,9 @@
 #define FYP_MAPS_BUCKET_HPP
 
 namespace drt {
-
-    template<typename Key, typename Val, class Hash = std::hash<Key>>
-    class Hashmap;
-
 namespace drtx {
 
-    template<typename Key, typename Val, class Hash>
+    template<typename Val>
     class BucketIterator;
 
     template<typename T>
@@ -32,19 +28,16 @@ namespace drtx {
      * @tparam Key Type of key object.
      * @tparam Val Type of mapped objects.
      */
-    template<typename Key, typename Val, class Hash>
+    template<typename Key, typename Val>
     struct Bucket {
 
-        using value_type  =  typename Hashmap<Key, Val, Hash>::value_type;
+        using value_type  =  Val;
         using bNode       =  _bNode<value_type>;
-        using iterator    =  BucketIterator<Key, Val, Hash>;
+        using iterator    =  BucketIterator<value_type>;
         // misc return type alias for brevity
         using bool_ptr    =  std::pair<bool, bNode*>;
 
         void *head = nullptr;
-
-        Bucket() = default;
-        ~Bucket() = default;
 
         /**
          * Searches for an element with key = k.

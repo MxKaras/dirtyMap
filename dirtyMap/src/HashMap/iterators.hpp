@@ -8,12 +8,11 @@ namespace drtx {
     /**
      * Iterator class that traverses up the list of elements stored in a bucket.
      */
-    template<typename Key, typename Val, class Hash>
+    template<typename Val>
     class BucketIterator {
     private:
-        using bucket       = Bucket<Key, Val, Hash>;
-        using value_type   = typename bucket::value_type;
-        using node         = _bNode<value_type>;
+        using value_type = Val;
+        using node       = _bNode<value_type>;
 
     public:
         void *current;
@@ -70,14 +69,13 @@ namespace drtx {
      * travel up the vector until hitting upon an element, then travel up
      * the list at that location until reaching the end.
      */
-    template<typename Key, typename Val, class Hash>
+    template<typename Val, typename B, typename Vit>
     class HashMapIterator {
     private:
-        using map_type     = drt::Hashmap<Key, Val, Hash>;
-        using bucket       = typename map_type::bucket_type;
-        using value_type = typename map_type::value_type;
-        using v_iterator   = typename map_type::v_iterator;
-        using b_iterator   = typename bucket::iterator;
+        using bucket      = B;
+        using value_type  = Val;
+        using v_iterator  = Vit;
+        using b_iterator  = BucketIterator<value_type>;
 
         v_iterator index;
         v_iterator end;
@@ -118,7 +116,7 @@ namespace drtx {
          * the next non-empty bucket.
          */
         HashMapIterator& operator++(int) {
-            typename map_type::iterator temp(index, end);
+            HashMapIterator temp(index, end);
             ++bit;
 
             if (!bit.current) {
@@ -132,11 +130,11 @@ namespace drtx {
             return bit.current;
         }
 
-        bool operator==(const HashMapIterator<Key, Val, Hash> &other) const {
+        bool operator==(const HashMapIterator<Val, B, Vit> &other) const {
             return (index == other.index) && (bit == other.bit);
         }
 
-        bool operator!=(const HashMapIterator<Key, Val, Hash> &other) const {
+        bool operator!=(const HashMapIterator<Val, B, Vit> &other) const {
             return !(*this == other);
         }
 

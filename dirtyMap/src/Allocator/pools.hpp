@@ -177,6 +177,15 @@ namespace drtx {
         size_t index_of(void *ptr) const {
             return (reinterpret_cast<uintptr_t>(ptr) - reinterpret_cast<uintptr_t>(storage)) / sizeof(T);
         }
+
+    public:
+        bool operator==(_stackPoolBase &other) {
+            return storage == other.storage;
+        }
+
+        bool operator!=(_stackPoolBase &other) {
+            return !(*this == other);
+        }
     };
 
 } // namespace drtx
@@ -245,16 +254,6 @@ namespace drtx {
         }
     };
 
-    template<typename T, typename C>
-    inline bool operator==(const StackedPool<T, C> &lhs, const StackedPool<T, C> &rhs) {
-        return lhs.storage == rhs.storage;
-    }
-
-    template<typename T, typename C>
-    inline bool operator!=(const StackedPool<T, C> &lhs, const StackedPool<T, C> &rhs) {
-        return !(lhs == rhs);
-    }
-
 namespace drtx {
 
     /**
@@ -265,7 +264,6 @@ namespace drtx {
     struct PoolIterator {
 
         using pool_type = _stackPoolBase<T, C>;
-        using iterator  = typename pool_type::iterator;
 
         T *pool;
         size_t loc;
@@ -279,37 +277,37 @@ namespace drtx {
         }
 
         /// Prefix increment
-        iterator& operator++() {
+        PoolIterator& operator++() {
             ++loc;
             return *this;
         }
 
         /// Postfix increment
-        iterator operator++(int) {
-            iterator temp(*this);
+        PoolIterator operator++(int) {
+            PoolIterator temp(*this);
             ++loc;
             return temp;
         }
 
         /// Prefix decrement
-        iterator& operator--() {
+        PoolIterator& operator--() {
             --loc;
             return *this;
         }
 
         /// Postfix decrement
-        iterator operator--(int) {
-            iterator temp(*this);
+        PoolIterator operator--(int) {
+            PoolIterator temp(*this);
             --loc;
             return temp;
         }
 
-        bool operator==(const iterator &other) {
+        bool operator==(const PoolIterator<T, C> &other) {
             // comparing pool triggers valgrind on empty allocator
             return pool == other.pool && loc == other.loc;
         }
 
-        bool operator!=(const iterator &other) {
+        bool operator!=(const PoolIterator<T, C> &other) {
             return !(*this == other);
         }
     };

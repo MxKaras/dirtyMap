@@ -82,6 +82,14 @@ TEST_F(StackedPoolTest, iterator_test2) {
     ASSERT_TRUE(start == full_pool.begin());
 }
 
+TEST_F(StackedPoolTest, iteratorTest3) {
+    auto it = pool.begin();
+    ASSERT_EQ(0, *it);
+    auto x = it++;
+    ASSERT_EQ(0, *x);
+    ASSERT_EQ(1, *it);
+}
+
 TEST_F(StackedPoolTest, deallocate_test) {
     pool.deallocate(&(*pool.begin()));
     // we removed the first element - last one should have
