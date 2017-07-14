@@ -5,7 +5,7 @@
 using namespace drt;
 
 /*
- * Test that basic element insertion routines work.
+ * Test that basic element insertion routines and lookup work.
  * Use ZeroHF to force all inserts to go to the same bucket.
  */
 
@@ -54,4 +54,14 @@ TEST_F(BasicTest, TestInsert3) {
     ASSERT_EQ(3, h[2]);
     ASSERT_EQ(4, h[3]);
     ASSERT_EQ(3, h.size());
+}
+
+TEST_F(BasicTest, atTest) {
+    h[1] = 2;
+    ASSERT_EQ(2, h.at(1));
+}
+
+TEST_F(BasicTest, atFailTest) {
+    h[3] = 4;
+    ASSERT_THROW(h.at(1), std::out_of_range);
 }
