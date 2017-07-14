@@ -28,8 +28,8 @@ namespace drtx {
      * @tparam Key Type of key object.
      * @tparam Val Type of mapped objects.
      */
-    template<typename Key, typename Val>
-    struct Bucket {
+    template<typename Key, typename Val, typename ExtractKey>
+    struct Bucket : public ExtractKey {
 
         using value_type  =  Val;
         using bNode       =  _bNode<value_type>;
@@ -51,7 +51,7 @@ namespace drtx {
             while (it.current) {
                 value_type *element = it.current_element();
 
-                if (element->first == k) {
+                if (this->operator()(*element) == k) {
                     return element;
                 }
                 ++it;
