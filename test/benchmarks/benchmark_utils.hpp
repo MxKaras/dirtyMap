@@ -219,7 +219,7 @@ namespace drt_testing {
 
     void _print_results(double _dur, string _n, string _m, size_t _s) {
         int i = printf("| %s [%lu] with %s |\n", _n.c_str(), _s, _m.c_str());
-        printf("%*c%9s %.6lf s %*c\n", -(i/3), '|', "Duration:", _dur/1000.0, i-(i/3)-22, '|');
+        printf("%*c%9s %.2lf s %*c\n", -(i/3), '|', "Duration:", _dur/1000.0, i-(i/3)-22, '|');
         printf("|");
         for (int j = 0; j < i - 3; ++j) printf("#");
         printf("|\n");
