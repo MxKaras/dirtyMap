@@ -3,12 +3,11 @@ project(FYP_MAPS CXX)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
+file(GLOB_RECURSE HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/dirtyMap/*.hpp)
+
 add_library(fypMaps INTERFACE)
-target_include_directories(
-        fypMaps INTERFACE
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-        $<INSTALL_INTERFACE:include/fypMaps>
-)
+target_sources(fypMaps INTERFACE ${HEADERS})
+target_include_directories(fypMaps INTERFACE ${CMAKE_SOURCE_DIR})
 
 option(BUILD_TESTS "Build tests" ON)
 
