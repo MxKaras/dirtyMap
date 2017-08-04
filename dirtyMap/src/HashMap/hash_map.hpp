@@ -101,6 +101,17 @@ namespace drt {
         }
 
         /**
+         * Inserts a new key-value pair, constructing the pair in place.
+         * (Potentially moves the object after creation).
+         *
+         * @param args Parameters for creating a std::pair<K, V>.
+         */
+        template<typename... Args>
+        void emplace(Args&&... args) {
+            ht.emplace(std::forward<Args>(args)...);
+        }
+
+        /**
          * @brief Access to map elements.
          * @param k The key for which a mapped value should be returned.
          * @return A reference to the value associated with k, if it exists.
@@ -132,7 +143,7 @@ namespace drt {
 
         /// Setter for the maximum load factor.
         void max_load_factor(float f) {
-            ht.load_factor(f);
+            ht.max_load_factor(f);
         }
 
         /// Returns the current ratio of elements to buckets.

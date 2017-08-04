@@ -52,7 +52,7 @@ namespace drtx {
          * @return A reference to the value associated with k.
          */
         mapped_type& operator[](const key_type &k) {
-            hash_table *h = static_cast<hash_table*>(this);
+            auto h = static_cast<hash_table*>(this);
             size_t index = h->hash_index(k);
             value_type *element = h->buckets[index].search(k);
 
@@ -90,7 +90,7 @@ namespace drtx {
          * @return A reference to the value associated with k.
          */
         mapped_type& operator[](key_type &&k) {
-            hash_table *h = static_cast<hash_table*>(this);
+            auto h = static_cast<hash_table*>(this);
             size_t index = h->hash_index(k);
             value_type *element = h->buckets[index].search(k);
 
@@ -131,7 +131,7 @@ namespace drtx {
          * the map, throw an out_of_range error.
          */
         mapped_type& at(const key_type &k) {
-            hash_table *h = static_cast<hash_table*>(this);
+            auto h = static_cast<hash_table*>(this);
             size_t index = h->hash_index(k);
             value_type *element = h->buckets[index].search(k);
 
@@ -173,9 +173,6 @@ namespace drtx {
         size_t _element_count = 0;
         float _max_load_factor = 1.0;
 
-        // ebo one day?
-        Hash hasher;
-
         // needs access to buckets
         friend class drtx::HashMapIterator<Val, bucket_type, v_iterator>;
         friend struct _map_base<Key, Val, Hash, SelectKey>;
@@ -185,15 +182,15 @@ namespace drtx {
 
         // constructors & destructor
 
-        hashtable() : buckets(1), hasher(), node_alloc(), elem_alloc() { }
+        hashtable() : buckets(1), node_alloc(), elem_alloc() { }
 
-        hashtable(size_t n, const Hash &hf = Hash()) : buckets(n), hasher(hf), node_alloc(), elem_alloc() { }
+        hashtable(size_t n, const Hash &hf = Hash()) : buckets(n), node_alloc(), elem_alloc() { }
 
         ~hashtable() = default;
         hashtable(const hashtable&) = default;
         hashtable& operator=(const hashtable&) = default;
-        hashtable(hashtable&&) = default;
-        hashtable& operator=(hashtable&&) = default;
+        hashtable(hashtable&&) noexcept = default;
+        hashtable& operator=(hashtable&&) noexcept = default;
 
         // size & capacity
 
@@ -241,7 +238,7 @@ namespace drtx {
          * @return  The number of elements that were removed (0 or 1).
          */
         size_t erase(const Key &k) {
-            size_t index = hasher(k) % bucket_count();
+            auto index = hash_index(k);
             bucket_type &b = buckets[index];
             value_type *element = b.search(k);
 
@@ -271,7 +268,79 @@ namespace drtx {
             return 1;
         }
 
-        // insert/emplace methods?
+        /**
+         * (Non-standards compliant)
+         *
+         * Inserts an element using the arguments needed instead of
+         * an existing object.
+         *
+         * As we don't know in advance if we'll be creating an element
+         * or a node, we make an element first, before hashing the key.
+         * Thus, this method has a chance of doing an extra move and
+         * delete.
+         */
+        template<typename... Args>
+        void emplace(Args&&... args) {
+            // assume we'll be inserting an element to begin with
+            auto element = static_cast<value_type*>(elem_alloc.allocate());
+            new(element) value_type(std::forward<Args>(args)...);
+
+            auto k = fn.extract_key(*element);
+            auto index = hash_index(k);
+            auto e = buckets[index].search(k);
+
+            if (!e) {
+                bucket_type &b = buckets[index];
+
+                if (b.isEmpty()) {
+                    b.insert_node(element);
+                } else {
+                    auto ptr = static_cast<bucket_node*>(node_alloc.allocate());
+                    new(ptr) bucket_node(std::move(*element));
+                    b.insert_node(ptr);
+                    elem_alloc.destroy(element);
+                }
+
+                ++_element_count;
+                // rehash here instead of earlier to avoid duplicate entries
+                maybe_rehash();
+            } else {
+                // element already existed, so need to clean up
+                elem_alloc.destroy(element);
+            }
+        }
+
+        /*
+         * Slightly better version of the above, which will be used
+         * when passing `key_type` as the first parameter.
+         */
+        template<typename... Args>
+        void emplace(key_type &&k, Args&&... args) {
+            auto index = hash_index(k);
+            auto element = buckets[index].search(k);
+
+            if (!element) {
+                bool r = maybe_rehash();
+                if (r) index = hash_index(k);
+                bucket_type &b = buckets[index];
+
+                if (b.isEmpty()) {
+                    element = static_cast<value_type*>(elem_alloc.allocate());
+                    new(element) value_type(
+                            std::forward<key_type>(k),
+                            std::forward<Args>(args)...);
+                    b.insert_node(element);
+                } else {
+                    bucket_node *ptr = static_cast<bucket_node*>(node_alloc.allocate());
+                    new(ptr) bucket_node(value_type(std::forward<key_type>(k),
+                                                    std::forward<Args>(args)...));
+                    b.insert_node(ptr);
+                    element = &ptr->element;
+                }
+
+                ++_element_count;
+            }
+        }
 
         // lookup
 
@@ -283,7 +352,7 @@ namespace drtx {
          * As there can be no duplicate key, this will only return 1 or 0.
          */
         size_t count(const Key &k) const {
-            size_t index = hasher(k) % bucket_count();
+            auto index = hash_index(k);
             value_type *element = buckets[index].search(k);
 
             if (element) {
@@ -385,7 +454,7 @@ namespace drtx {
 
             for (; it != end_; ++it) {
                 value_type &element = *it;
-                size_t index = hasher(element.first) % size;
+                auto index = hash_index(element.first);
                 bucket_type &b = vec[index];
 
                 if (b.isEmpty()) {
@@ -422,7 +491,7 @@ namespace drtx {
 
             for (; it != end_; ++it) {
                 bucket_node &node = *it;
-                size_t index = hasher(node.element.first) % size;
+                auto index = hash_index(node.element.first);
                 bucket_type &b = vec[index];
 
                 if (b.isEmpty()) {
@@ -444,13 +513,13 @@ namespace drtx {
          * Destroys node at `ptr` and updates invalidated bucket pointer if
          * necessary.
          */
-        void destroy_bucket_node(void *ptr, const Key &k) {
+        void destroy_bucket_node(void *ptr, const key_type &k) {
             // When object at ptr is destroyed, a new object may be moved
             // to its address, which changes the value of k.
             void *prev = node_alloc.destroy(ptr);
 
             if (prev) {
-                size_t to_update = hasher(k) % bucket_count();
+                size_t to_update = hash_index(k);
                 buckets[to_update].update_node(prev, ptr);
             }
         }
@@ -459,20 +528,37 @@ namespace drtx {
          * Destroys element at `ptr` and updates invalidated bucket pointer if
          * necessary.
          */
-        void destroy_bucket_element(void *ptr, const Key &k) {
+        void destroy_bucket_element(void *ptr, const key_type &k) {
             // When object at ptr is destroyed, a new object may be moved
             // to its address, which changes the value of k.
             void *prev = elem_alloc.destroy(ptr);
 
             if (prev) {
-                size_t to_update = hasher(k) % bucket_count();
+                size_t to_update = hash_index(k);
                 buckets[to_update].update_element(prev, ptr);
             }
         }
 
         size_t hash_index(const key_type &k) const {
-            return hasher(k) % bucket_count();
+            return fn.do_hash(k) % bucket_count();
         }
+
+        /*
+         * This is a way to get function objects that take up no bytes.
+         * TODO: extract_key makes (uneeded?) copy
+         */
+        class FunctorHelper : public Hash, public SelectKey {
+        public:
+            const key_type& extract_key(const value_type &v) const {
+                return SelectKey::operator()(v);
+            }
+
+            size_t do_hash(const key_type &k) const {
+                return Hash::operator()(k);
+            }
+        };
+
+        FunctorHelper fn;
     };
 
 }
